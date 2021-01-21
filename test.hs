@@ -4,29 +4,24 @@ import System.Random
 
 main :: IO ()
 main = do
-  play_piece
-  --play_other_piece
   get_devices
+  play_piece
 
 play_piece =
     let
       m1 :: [AbsPitch]
-      m1 = cycle [60, 60, 60, 64, 65, 65, 65, 65]
-    in play_simple m1
+      m1 = [69, 65, 69, 65, 69, 65, 69]
+      m2 :: [AbsPitch]
+      m2 = [60, 60, 60, 60, 60, 65, 65]
+    in play_simple m1 m2
 
-
-play_other_piece =
-  playDev 4 m
+play_simple m1 m2 =
+  playDev 4 piece
     where
-      m1 :: [AbsPitch]
-      m1 = [60, 56, 56, 56, 65, 65, 65, 65]
-      m = line $ map (note hn) m1
-
-
-play_simple bl =
-  playDev 5 m
-    where
-      m = line $ map (note hn) [x + 3 | x <- bl]
-
-
+      m = line $ map (note qn) m1
+      n = line $ map (note qn) m2
+      first = forever (m :+: rest qn :+: n :+: rest qn)
+      second = forever ( n :+: rest qn)
+      third = offset tn first
+      piece = first :=: second :=: third
 get_devices = devices
