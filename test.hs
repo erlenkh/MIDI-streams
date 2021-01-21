@@ -8,9 +8,6 @@ main = do
   --play_other_piece
   get_devices
 
-
-
-
 play_piece =
     let
       m1 :: [AbsPitch]
