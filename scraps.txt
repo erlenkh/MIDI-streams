@@ -1,8 +1,0 @@
-main = do
-
-play_arp m =
-  playDev 3 notes
-    where
-      m1 :: [AbsPitch]
-      m1 = cycle [60, 60, 60, 64, 65, 65, 65, 65]
-      m = line $ map (note hn) m1
