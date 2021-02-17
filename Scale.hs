@@ -1,7 +1,7 @@
 module Scale
 ( createScale
 , createFullMIDIScale
-  ) where
+) where
 
 import Euterpea
 import Data.List
@@ -11,10 +11,9 @@ createScale :: PitchClass -> Int -> Mode -> [Pitch]
 createScale root octave mode =
   let modeIntervals = getModeIntervals mode
       rootAbs = absPitch (root, octave)
-      folding_func acc x = head(acc) + x : acc
-      scaleAbsPitch = reverse (foldl folding_func [rootAbs] modeIntervals)
-      scalePitch = map (pitch) scaleAbsPitch
-  in scalePitch
+      folding_func acc x = head acc + x : acc
+      scaleAbsPitch = reverse $ foldl folding_func [rootAbs] modeIntervals
+  in map pitch scaleAbsPitch
 
 createFullMIDIScale :: PitchClass -> Mode -> [AbsPitch]
 createFullMIDIScale root mode =
