@@ -1,6 +1,7 @@
 module Scale
 ( createScale
 , createFullMIDIScale
+, scaleDeg2AbsPitch
 ) where
 
 import Euterpea
@@ -20,6 +21,12 @@ createFullMIDIScale root mode =
   let octave_scale octave = init $ createScale root octave mode
       full_scale =  map absPitch $ concat $ map octave_scale [-1..9]
   in [x | x <- full_scale, x >= 0, x < 128] --limit to MIDI range (0,127)
+
+
+scaleDeg2AbsPitch :: Int -> PitchClass -> Mode -> AbsPitch
+scaleDeg2AbsPitch scaleDeg root mode =
+  let fullMIDIScale = createFullMIDIScale root mode
+  in fullMIDIScale !! scaleDeg
 
 getModeIntervals :: Mode -> [AbsPitch]
 getModeIntervals mode =
