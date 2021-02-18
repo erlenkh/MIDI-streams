@@ -20,7 +20,7 @@ createFullMIDIScale :: PitchClass -> Mode -> [AbsPitch]
 createFullMIDIScale root mode =
   let octave_scale octave = init $ createScale root octave mode
       full_scale =  map absPitch $ concat $ map octave_scale [-1..9]
-  in [x | x <- full_scale, x >= 0, x < 128] --limit to MIDI range (0,127)
+  in [x | x <- full_scale, x >= 0, x < 128] -- limit to MIDI range (0,127)
 
 
 scaleDeg2AbsPitch :: Int -> PitchClass -> Mode -> AbsPitch
