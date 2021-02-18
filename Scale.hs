@@ -8,7 +8,7 @@ import Euterpea
 import Data.List
 import qualified Data.Map as Map
 
-createScale :: PitchClass -> Int -> Mode -> [Pitch]
+createScale :: PitchClass -> Octave -> Mode -> [Pitch]
 createScale root octave mode =
   let modeIntervals = getModeIntervals mode
       rootAbs = absPitch (root, octave)
@@ -22,7 +22,7 @@ createFullMIDIScale root mode =
       full_scale =  map absPitch $ concat $ map octave_scale [-1..9]
   in [x | x <- full_scale, x >= 0, x < 128] -- limit to MIDI range (0,127)
 
-
+-- scale degrees are zero-indexed:
 scaleDeg2AbsPitch :: Int -> PitchClass -> Mode -> AbsPitch
 scaleDeg2AbsPitch scaleDeg root mode =
   let fullMIDIScale = createFullMIDIScale root mode
