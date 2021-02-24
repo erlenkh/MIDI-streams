@@ -15,7 +15,7 @@ import Euterpea
  polymorphic tree, with Euterpeas primitives (note or rest) as leaves.
  Each branch is labeled with an orientation H or V corr. to chord or line
 
- Already exists in euterpea, but re-implemented to allow things like grouping
+ Similar structures already exists in euterpea, but re-implemented to allow things like grouping
  by slicing.
 -}
 
