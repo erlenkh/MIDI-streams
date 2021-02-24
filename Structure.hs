@@ -17,6 +17,9 @@ import Euterpea
 
  Similar structures already exists in euterpea, but re-implemented to allow things like grouping
  by slicing.
+
+
+ test2
 -}
 
 data Orientation = H | V deriving (Show)  -- Horizontal | Vertical
