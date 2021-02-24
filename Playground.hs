@@ -3,16 +3,16 @@ import Scale
 import Structure
 import Euterpea
 
-exampleSong2 :: OrientedTree (Primitive Pitch)
-exampleSong2 = Group H [
-                Val (Note en (C,4)),
-                Val (Rest en),
+exampleSong :: OrientedTree (Primitive Pitch)
+exampleSong = Group H [
                 Group V [
                   Val (Note qn (C,4)),
-                  Val (Note qn (E,4)),
-                  Group H [
-                    Val (Note en (G,4)),
-                    Val (Rest en)
+                  Val (Note qn (D,4)),
+                  Val (Note qn (E,4))
+                  ],
+                Group V [
+                  Val (Note qn (F,4)),
+                  Val (Note qn (G,4)),
+                  Val (Note qn (A,4))
                   ]
-                ]
               ]
