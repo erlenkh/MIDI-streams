@@ -24,15 +24,15 @@ data OrientedTree a = Val a | Group Orientation [OrientedTree a]
 
 type MusicTree = OrientedTree (Primitive Pitch)
 
-type Padding = Int
+pad :: Int -> String
 pad 0 = ""
 pad n = " " ++ pad (n-1)
 
-showTree :: Padding -> OrientedTree -> String
+showTree :: (Show a) => Int -> OrientedTree a -> String
 showTree n (Val x) = pad n ++ show x
 showTree n (Group H treez) = "\n" ++ pad n ++ "H\n" ++ horiShow ++ "\n"
   where horiShow = concat $ map (showTree (n + 2)) treez
-showTree n (Group V treez) = pad n ++ "V: " ++ vertShow ++ "\n"
+showTree n (Group V treez) = "\n" ++ pad n ++ "V: " ++ vertShow ++ "\n"
   where vertShow = concat $ intersperse "," $ map (showTree 1) treez
 
 instance (Show a) => Show (OrientedTree a) where
