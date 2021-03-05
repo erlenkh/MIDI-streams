@@ -24,3 +24,5 @@ chordPart =
 
 song :: OrientedTree (Primitive Pitch)
 song = Group H [chordPart, chordPart]
+
+newSong = replaceElement song [0,1] $ Val (Note qn (E,4))
