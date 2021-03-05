@@ -9,6 +9,7 @@ module Structure
 
 import Euterpea
 import Data.List
+import Control.Applicative
 {-
  the grouping structure of a piece, represented as a
  polymorphic tree, with Euterpeas primitives (note or rest) as leaves.
@@ -82,7 +83,12 @@ replaceElement :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
 replaceElement tree path newElement = newTree
   where newTree = addToGroup (removeFromGroup tree path) newElement path
 
-
+{-
+sliceToPathList :: Slice -> OrientedTree a -> [Path]
+sliceToPathList [All] (Val x) = []
+sliceToPathList [All] (Group o trees) =
+  let idxs = [0..length(trees)]
+-}
 
 
 
