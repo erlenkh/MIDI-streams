@@ -4,15 +4,21 @@ import Structure
 import Euterpea
 
 exampleSong :: OrientedTree (Primitive Pitch)
-exampleSong = Group H [
+exampleSong =
+              Group H [
                 Group V [
-                  Val (Note qn (C,4)),
-                  Val (Note qn (D,4)),
-                  Val (Note qn (E,4))
+                  Val (Note hn (C,4)),
+                  Val (Note hn (E,4)),
+                  Val (Note hn (G,4))
                   ],
+                Val (Note qn (B,4)),
                 Group V [
-                  Val (Note qn (F,4)),
-                  Val (Note qn (G,4)),
-                  Val (Note qn (A,4))
-                  ]
-              ]
+                  Val (Note hn (D,4)),
+                  Val (Note hn (G,4)),
+                  Val (Note hn (B,4))
+                  ],
+                Val (Rest hn)
+                ]
+
+song :: OrientedTree (Primitive Pitch)
+song = Group H []
