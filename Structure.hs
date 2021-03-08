@@ -83,13 +83,11 @@ replaceElement :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
 replaceElement tree path newElement = newTree
   where newTree = addToGroup (removeFromGroup tree path) newElement path
 
-{-
-sliceToPathList :: Slice -> OrientedTree a -> [Path]
-sliceToPathList [All] (Val x) = []
-sliceToPathList [All] (Group o trees) =
-  let idxs = [0..length(trees)]
--}
 
+sliceToPaths :: Slice -> OrientedTree a -> [Path]
+sliceToPaths _ (Val x) = [[]]
+sliceToPaths [All] (Group o trees) = 
+  concat [map (c:) (sliceToPaths [All] t) | (c,t) <- zip [0 .. ] trees]
 
 
 -- TODO Make the tree operations return maybe so we can allow failure..
