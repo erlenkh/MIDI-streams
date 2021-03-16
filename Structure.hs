@@ -39,12 +39,6 @@ showTree n (Group V treez) = "\n" ++ pad n ++ "V: " ++ vertShow ++ "\n"
 instance (Show a) => Show (OrientedTree a) where
   show x = showTree 0 x
 
-type Path = [Int]
-
-data Choice = Some [Int] | All
-
-type Slice = [Choice]
-
 -- converts from a piece of music from orientedTree to Euterpeas 'Music Pitch'
 -- enables us to play the piece as MIDI with built-in Euterpea functions
 treeToMusic :: MusicTree -> Music Pitch
@@ -56,6 +50,10 @@ treeToMusic (Group V (x:xs)) = foldl parallel (treeToMusic x) xs
 
 valToMusic :: MusicTree -> Music Pitch
 valToMusic (Val x) = Prim (x)
+
+-- PATH ------------------------------------------------------------------------
+
+type Path = [Int]
 
 getElement :: OrientedTree a -> Path -> OrientedTree a
 getElement (Val a) [x] = error "element does not exist"
@@ -83,16 +81,13 @@ replaceElement :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
 replaceElement tree path newElement = newTree
   where newTree = addToGroup (removeFromGroup tree path) newElement path
 
---at each hierarchical level: select either either some Branches or ALl
-sliceToPaths :: Slice -> OrientedTree a -> [Path]
-sliceToPaths _ (Val x) = [[]]
-sliceToPaths ([]) (Group _ trees) =
-  concat [map (c:) (sliceToPaths [All] t) | (c,t) <- zip [0 .. ] trees]
-sliceToPaths (All : slice) (Group _ trees) =
-  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip [0 .. ] trees]
-sliceToPaths (Some idxs : slice) (Group _ trees) =
-  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip idxs (map (trees !!) idxs)]
 
+-- SLICING ---------------------------------------------------------------------
+
+data Choice = Some [Int] | All
+
+type Slice = [Choice]
+--at each hierarchical level: select either either some Branches or ALl
 
 sliceTree :: Slice -> OrientedTree a -> OrientedTree a
 sliceTree _ (Val x) = Val x
@@ -102,6 +97,7 @@ sliceTree (All : slice) (Group o trees) =
 sliceTree (Some  idxs : slice) (Group o trees) =
    Group o $ map (sliceTree slice) (map (trees !!) idxs)
 
+--applies function to every element in slice
 applyFunction :: (a -> a) -> Slice -> OrientedTree a -> OrientedTree a
 applyFunction f _ (Val x) = Val (f x)
 applyFunction f (All : slice) (Group o trees) =
@@ -113,6 +109,16 @@ applyFunction f (Some idxs : slice) (Group o trees) =
 replace :: a -> a -> a
 replace new old = new
 
+sliceToPaths :: Slice -> OrientedTree a -> [Path]
+sliceToPaths _ (Val x) = [[]]
+sliceToPaths ([]) (Group _ trees) =
+  concat [map (c:) (sliceToPaths [All] t) | (c,t) <- zip [0 .. ] trees]
+sliceToPaths (All : slice) (Group _ trees) =
+  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip [0 .. ] trees]
+sliceToPaths (Some idxs : slice) (Group _ trees) =
+  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip idxs (map (trees !!) idxs)]
+
+-- TESTING ---------------------------------------------------------------------
 testTree :: OrientedTree (Primitive Pitch)
 testTree =
               Group H [
