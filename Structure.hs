@@ -83,11 +83,61 @@ replaceElement :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
 replaceElement tree path newElement = newTree
   where newTree = addToGroup (removeFromGroup tree path) newElement path
 
-
+--at each hierarchical level: select either either some Branches or ALl
 sliceToPaths :: Slice -> OrientedTree a -> [Path]
 sliceToPaths _ (Val x) = [[]]
-sliceToPaths [All] (Group o trees) = 
+sliceToPaths ([]) (Group _ trees) =
   concat [map (c:) (sliceToPaths [All] t) | (c,t) <- zip [0 .. ] trees]
+sliceToPaths (All : slice) (Group _ trees) =
+  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip [0 .. ] trees]
+sliceToPaths (Some idxs : slice) (Group _ trees) =
+  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip idxs (map (trees !!) idxs)]
+
+
+sliceTree :: Slice -> OrientedTree a -> OrientedTree a
+sliceTree _ (Val x) = Val x
+sliceTree ([]) tree = sliceTree [All] tree
+sliceTree (All : slice) (Group o trees) =
+   Group o $ map (sliceTree slice) trees
+sliceTree (Some  idxs : slice) (Group o trees) =
+   Group o $ map (sliceTree slice) (map (trees !!) idxs)
+
+applyFunction :: (a -> a) -> Slice -> OrientedTree a -> OrientedTree a
+applyFunction f _ (Val x) = Val (f x)
+applyFunction f (All : slice) (Group o trees) =
+  Group o $ map (applyFunction f slice) trees
+applyFunction f (Some idxs : slice) (Group o trees) =
+  Group o $ zipWith zf trees [0..] where
+    zf tree idx = if idx `elem` idxs then applyFunction f slice tree else tree
+
+replace :: a -> a -> a
+replace new old = new
+
+testTree :: OrientedTree (Primitive Pitch)
+testTree =
+              Group H [
+                Group V [
+                  Val (Note hn (C,4)),
+                  Val (Note hn (E,4)),
+                  Val (Note hn (G,4))
+                  ],
+                Group V [
+                  Val (Note hn (C,4)),
+                  Val (Note hn (E,4)),
+                  Val (Note hn (G,4))
+                  ],
+                Group V [
+                  Val (Note hn (D,4)),
+                  Val (Note hn (G,4)),
+                  Val (Note hn (B,4))
+                  ],
+                Group V [
+                  Val (Note hn (D,4)),
+                  Val (Note hn (G,4)),
+                  Val (Note hn (B,4))
+                  ]
+                ]
+
 
 
 -- TODO Make the tree operations return maybe so we can allow failure..
