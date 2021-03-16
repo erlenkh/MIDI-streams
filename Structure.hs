@@ -91,11 +91,12 @@ type Slice = [Choice]
 
 sliceTree :: Slice -> OrientedTree a -> OrientedTree a
 sliceTree _ (Val x) = Val x
-sliceTree ([]) tree = sliceTree [All] tree
+sliceTree ([]) tree = tree
 sliceTree (All : slice) (Group o trees) =
    Group o $ map (sliceTree slice) trees
 sliceTree (Some  idxs : slice) (Group o trees) =
    Group o $ map (sliceTree slice) (map (trees !!) idxs)
+
 
 --applies function to every element in slice
 applyFunction :: (a -> a) -> Slice -> OrientedTree a -> OrientedTree a
@@ -109,15 +110,18 @@ applyFunction f (Some idxs : slice) (Group o trees) =
 replace :: a -> a -> a
 replace new old = new
 
-sliceToPaths :: Slice -> OrientedTree a -> [Path]
-sliceToPaths _ (Val x) = [[]]
-sliceToPaths ([]) (Group _ trees) =
-  concat [map (c:) (sliceToPaths [All] t) | (c,t) <- zip [0 .. ] trees]
-sliceToPaths (All : slice) (Group _ trees) =
-  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip [0 .. ] trees]
-sliceToPaths (Some idxs : slice) (Group _ trees) =
-  concat [map (c:) (sliceToPaths slice t) | (c,t) <- zip idxs (map (trees !!) idxs)]
+addAfter :: OrientedTree a -> Slice -> OrientedTree a ->  OrientedTree a
+addAfter e [] tree  = tree
+addAfter e [All] (Group o trees) = Group o $ map (++ [e]) trees
+addAfter e [Some idxs] (Group o trees) = Group o $ map (++[e]) treez
+  where treez = map (trees !!) idxs
+addAfter e (All : slc) (Group o trees) = Group o $ map (addAfter e slc) trees
+addAfter e (Some idxs : slc) (Group o trees) = Group o $ map (addAfter e slc) treez
+  where treez = map (trees !!) idxs
 
+
+addAfterIdx :: [a] -> [a] -> [a]
+addAfterIdx =
 -- TESTING ---------------------------------------------------------------------
 testTree :: OrientedTree (Primitive Pitch)
 testTree =
