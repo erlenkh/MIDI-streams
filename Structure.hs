@@ -110,6 +110,8 @@ applyFunction f (Some idxs : slice) (Group o trees) =
 replace :: a -> a -> a
 replace new old = new
 
+{-
+
 addAfter :: OrientedTree a -> Slice -> OrientedTree a ->  OrientedTree a
 addAfter e [] tree  = tree
 addAfter e [All] (Group o trees) = Group o $ map (++ [e]) trees
@@ -122,6 +124,8 @@ addAfter e (Some idxs : slc) (Group o trees) = Group o $ map (addAfter e slc) tr
 
 addAfterIdx :: [a] -> [a] -> [a]
 addAfterIdx =
+
+-}
 -- TESTING ---------------------------------------------------------------------
 testTree :: OrientedTree (Primitive Pitch)
 testTree =
