@@ -87,18 +87,18 @@ replaceElement tree path newElement = newTree
 
 -- SLICING ---------------------------------------------------------------------
 
-data Choice = Some [Int] | All
+data Choice = Some [Int] | All deriving Show
 
 type Slice = [Choice]
 --at each hierarchical level: select either some Branches or ALl
 
-sliceTree :: Slice -> OrientedTree a -> OrientedTree a
-sliceTree _ (Val x) = Val x
-sliceTree ([]) tree = tree
-sliceTree (All : slice) (Group o trees) =
-   Group o $ map (sliceTree slice) trees
-sliceTree (Some  idxs : slice) (Group o trees) =
-   Group o $ map (sliceTree slice) (map (trees !!) idxs)
+extract :: Slice -> OrientedTree a -> OrientedTree a
+extract _ (Val x) = Val x
+extract ([]) tree = tree
+extract (All : slice) (Group o trees) =
+   Group o $ map (extract slice) trees
+extract (Some  idxs : slice) (Group o trees) =
+   Group o $ map (extract slice) (map (trees !!) idxs)
 
 
 --applies function to every element in slice
@@ -112,6 +112,12 @@ applyFunction f (Some idxs : slice) (Group o trees) =
 
 replace :: a -> a -> a
 replace new old = new
+
+-- slice construction: allows the composition of (Slice -> Slice)
+-- examples that apply to "testTree": (need to be generalized)
+atChords, atVoices :: [Int] -> Slice -> Slice
+atChords selection [_ , choice] = [Some selection, choice]
+atVoices selection [choice, _] = [choice, Some selection]
 
 -- PRE-FIX TREE ----------------------------------------------------------------
 
@@ -172,6 +178,6 @@ testTree =
                 ]
 
 
--- make Slice -> Slice functions (lenses etc) 
+-- make Slice -> Slice functions (lenses etc)
 -- TODO Make the tree operations return maybe so we can allow failure..
 -- TODO create slicing abilities like the prefix boyz have done
