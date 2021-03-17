@@ -115,6 +115,8 @@ replace new old = new
 
 -- slice construction: allows the composition of (Slice -> Slice)
 -- examples that apply to "testTree": (need to be generalized)
+-- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
+-- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
 atChords, atVoices :: [Int] -> Slice -> Slice
 atChords selection [_ , choice] = [Some selection, choice]
 atVoices selection [choice, _] = [choice, Some selection]
@@ -177,7 +179,5 @@ testTree =
                   ]
                 ]
 
-
--- make Slice -> Slice functions (lenses etc)
 -- TODO Make the tree operations return maybe so we can allow failure..
 -- TODO create slicing abilities like the prefix boyz have done
