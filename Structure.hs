@@ -10,6 +10,9 @@ module Structure
 import Euterpea
 import Data.List
 import Control.Applicative
+
+-- MUSICTREE -------------------------------------------------------------------
+
 {-
  the grouping structure of a piece, represented as a
  polymorphic tree, with Euterpeas primitives (note or rest) as leaves.
@@ -87,7 +90,7 @@ replaceElement tree path newElement = newTree
 data Choice = Some [Int] | All
 
 type Slice = [Choice]
---at each hierarchical level: select either either some Branches or ALl
+--at each hierarchical level: select either some Branches or ALl
 
 sliceTree :: Slice -> OrientedTree a -> OrientedTree a
 sliceTree _ (Val x) = Val x
@@ -110,23 +113,39 @@ applyFunction f (Some idxs : slice) (Group o trees) =
 replace :: a -> a -> a
 replace new old = new
 
-{-
+-- PRE-FIX TREE ----------------------------------------------------------------
 
-addAfter :: OrientedTree a -> Slice -> OrientedTree a ->  OrientedTree a
-addAfter e [] tree  = tree
-addAfter e [All] (Group o trees) = Group o $ map (++ [e]) trees
-addAfter e [Some idxs] (Group o trees) = Group o $ map (++[e]) treez
-  where treez = map (trees !!) idxs
-addAfter e (All : slc) (Group o trees) = Group o $ map (addAfter e slc) trees
-addAfter e (Some idxs : slc) (Group o trees) = Group o $ map (addAfter e slc) treez
-  where treez = map (trees !!) idxs
+data PrefixTree k v = Leaf k v | Node k [PrefixTree k v] deriving (Show)
 
+type MusicPT =
+   PrefixTree (Slice -> Slice) ((Primitive Pitch) -> (Primitive Pitch))
 
-addAfterIdx :: [a] -> [a] -> [a]
-addAfterIdx =
+lookupPT :: (Eq k, Eq v) => [k] -> PrefixTree k v -> Maybe v
+lookupPT [] _ = Nothing
+lookupPT [x] (Leaf k v)  = if x == k then Just v else Nothing
+lookupPT (x:xs) (Leaf k v) = Nothing
+lookupPT (x:xs) (Node k ptrees) =  if k == x then check else Nothing
+  where check = case (find (\pt -> lookupPT xs pt /= Nothing) ptrees) of
+                  Just tree -> lookupPT xs tree
+                  Nothing -> Nothing
 
--}
 -- TESTING ---------------------------------------------------------------------
+
+testPT :: PrefixTree Char Int
+testPT = Node 'C' [
+          Node 'A' [
+            Leaf 'T' 1,
+            Leaf 'R' 2
+          ],
+          Node 'O' [
+            Leaf 'P' 3,
+            Node 'O' [
+              Leaf 'L' 4
+            ]
+          ]
+         ]
+
+
 testTree :: OrientedTree (Primitive Pitch)
 testTree =
               Group H [
@@ -153,6 +172,6 @@ testTree =
                 ]
 
 
-
+-- make Slice -> Slice functions (lenses etc) 
 -- TODO Make the tree operations return maybe so we can allow failure..
 -- TODO create slicing abilities like the prefix boyz have done
