@@ -2,6 +2,7 @@ module Scale
 ( getScaleNotes
 , createFullMIDIScale
 , scaleDeg2AbsPitch
+, absPitch2ScaleDeg
 , Root
 ) where
 
@@ -19,17 +20,29 @@ getScaleNotes root octave mode =
       scaleAbsPitch = reverse $ foldl folding_func [rootAbs] modeIntervals
   in map pitch scaleAbsPitch
 
+createFullScale :: Root -> Mode -> [AbsPitch]
+createFullScale root mode =
+  let octave_scale octave = init $ getScaleNotes root octave mode
+  in map absPitch $ concat $ map octave_scale [-1..9]
+
 createFullMIDIScale :: Root -> Mode -> [AbsPitch]
 createFullMIDIScale root mode =
-  let octave_scale octave = init $ getScaleNotes root octave mode
-      full_scale =  map absPitch $ concat $ map octave_scale [-1..9]
-  in [x | x <- full_scale, x >= 0, x < 128] -- limit to MIDI range (0,127)
+  [x | x <- createFullScale root mode, x >= 0, x < 128]
 
 -- scale degrees are zero-indexed:
-scaleDeg2AbsPitch ::  Root -> Mode -> Int -> AbsPitch
+scaleDeg2AbsPitch ::  Root -> Mode -> Int -> Maybe AbsPitch
 scaleDeg2AbsPitch  root mode  scaleDeg =
-  let fullMIDIScale = createFullMIDIScale root mode
-  in fullMIDIScale !! scaleDeg
+  if (scaleDeg >= 0 && scaleDeg < 128) then
+   Just $ (createFullMIDIScale root mode) !! scaleDeg
+  else Nothing
+
+  -- scale degrees are zero-indexed:
+absPitch2ScaleDeg :: Root -> Mode -> AbsPitch -> Maybe Int
+absPitch2ScaleDeg root mode absP =
+  let aPIdx = elemIndex absP $ createFullMIDIScale root mode
+  in case aPIdx of
+    Just idx -> Just idx
+    Nothing -> Nothing
 
 getModeIntervals :: Mode -> [AbsPitch]
 getModeIntervals mode =
