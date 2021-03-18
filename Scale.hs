@@ -1,30 +1,33 @@
 module Scale
-( createScale
+( getScaleNotes
 , createFullMIDIScale
 , scaleDeg2AbsPitch
+, Root
 ) where
 
 import Euterpea
 import Data.List
 import qualified Data.Map as Map
 
-createScale :: PitchClass -> Octave -> Mode -> [Pitch]
-createScale root octave mode =
+type Root = PitchClass
+
+getScaleNotes :: Root -> Octave -> Mode -> [Pitch]
+getScaleNotes root octave mode =
   let modeIntervals = getModeIntervals mode
       rootAbs = absPitch (root, octave)
       folding_func acc x = head acc + x : acc
       scaleAbsPitch = reverse $ foldl folding_func [rootAbs] modeIntervals
   in map pitch scaleAbsPitch
 
-createFullMIDIScale :: PitchClass -> Mode -> [AbsPitch]
+createFullMIDIScale :: Root -> Mode -> [AbsPitch]
 createFullMIDIScale root mode =
-  let octave_scale octave = init $ createScale root octave mode
+  let octave_scale octave = init $ getScaleNotes root octave mode
       full_scale =  map absPitch $ concat $ map octave_scale [-1..9]
   in [x | x <- full_scale, x >= 0, x < 128] -- limit to MIDI range (0,127)
 
 -- scale degrees are zero-indexed:
-scaleDeg2AbsPitch :: Int -> PitchClass -> Mode -> AbsPitch
-scaleDeg2AbsPitch scaleDeg root mode =
+scaleDeg2AbsPitch ::  Root -> Mode -> Int -> AbsPitch
+scaleDeg2AbsPitch  root mode  scaleDeg =
   let fullMIDIScale = createFullMIDIScale root mode
   in fullMIDIScale !! scaleDeg
 
