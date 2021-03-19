@@ -59,18 +59,16 @@ invertSD motifSD =
 
 -- replacePitches: takes a sequence of Pitches and a Motif and changes the
 -- Pitches while preserving the Rests and durations.
-replacePitches :: Motif -> [Pitch] -> Motif
-replacePitches motifM motifP = concat $ splitAndReplace motifM motifP
 
-splitAndReplace :: Motif -> [Pitch] -> [Motif]
-splitAndReplace [] _ = []
-splitAndReplace motif pitches  = filter (/= []) $
-  let primPs = takeWhile (notRest) motif
-      splitPs = splitAt (length primPs) pitches
-      newPrimPs = zipWith replacePitch primPs (fst splitPs)
+replacePitches :: Motif -> [Pitch] -> Motif
+replacePitches [] _ = []
+replacePitches motif pitches  =
+  let first = takeWhile (notRest) motif
       second = dropWhile (notRest) motif
-      rest = head second
-  in newPrimPs : [rest] : splitAndReplace (drop 1 second) (snd splitPs)
+      splitPs = splitAt (length first) pitches
+      newPrimPs = zipWith replacePitch first (fst splitPs)
+      rest = take 1 second
+  in newPrimPs ++ rest ++ replacePitches (drop 1 second) (snd splitPs)
 
 replacePitch :: Primitive Pitch -> Pitch -> Primitive Pitch
 replacePitch (Rest dur) _ = Rest dur
@@ -94,7 +92,9 @@ notRest (Note _ _) = True
 -- TESTING ---------------------------------------------------------------------
 
 motif :: Motif
-motif = [Rest sn, Note en (C,4), Rest sn, Note sn (C,4), Note en (E,4), Note en (B,4), Rest sn]
+motif = [Note en (C,4), Rest sn, Note sn (C,4), Note en (E,4), Note en (B,4)]
+motifP :: [Pitch]
+motifP = [(G,4), (A,4), (G,4), (A,4)]
 
 motif_inv = Motif.invert C Major motif
 motif_trans2 = Motif.transpose C Major motif 2
