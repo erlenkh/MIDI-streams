@@ -36,8 +36,8 @@ invert root mode motif =
       motifSD = map (toScaleDeg root mode) $ map (absPitch) motifP
       invMotifSD = invertSD motifSD
       invMotifP = map (pitch . toAbsPitch root mode) $ invMotifSD
-      invMotif = replacePitches motif invMotifP -- replace inv pitches in motif
-  in invMotif
+  in  replacePitches motif invMotifP -- replace inv pitches in motif
+
 
 -- HELPER FUNCTIONS ------------------------------------------------------------
 
