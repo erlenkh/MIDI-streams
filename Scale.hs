@@ -4,6 +4,7 @@ module Scale
 , scaleDeg2AbsPitch
 , absPitch2ScaleDeg
 , Root
+, ScaleDeg
 ) where
 
 import Euterpea
@@ -11,6 +12,7 @@ import Data.List
 import qualified Data.Map as Map
 
 type Root = PitchClass
+type ScaleDeg = Int
 
 getScaleNotes :: Root -> Octave -> Mode -> [Pitch]
 getScaleNotes root octave mode =
@@ -30,19 +32,17 @@ createFullMIDIScale root mode =
   [x | x <- createFullScale root mode, x >= 0, x < 128]
 
 -- scale degrees are zero-indexed:
-scaleDeg2AbsPitch ::  Root -> Mode -> Int -> Maybe AbsPitch
+scaleDeg2AbsPitch ::  Root -> Mode -> ScaleDeg -> Maybe AbsPitch
 scaleDeg2AbsPitch  root mode  scaleDeg =
   if (scaleDeg >= 0 && scaleDeg < 128) then
    Just $ (createFullMIDIScale root mode) !! scaleDeg
   else Nothing
 
   -- scale degrees are zero-indexed:
-absPitch2ScaleDeg :: Root -> Mode -> AbsPitch -> Maybe Int
+absPitch2ScaleDeg :: Root -> Mode -> AbsPitch -> Maybe ScaleDeg
 absPitch2ScaleDeg root mode absP =
-  let aPIdx = elemIndex absP $ createFullMIDIScale root mode
-  in case aPIdx of
-    Just idx -> Just idx
-    Nothing -> Nothing
+  elemIndex absP $ createFullMIDIScale root mode
+
 
 getModeIntervals :: Mode -> [AbsPitch]
 getModeIntervals mode =
