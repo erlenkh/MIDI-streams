@@ -11,6 +11,8 @@ module Structure
 , replaceElement
 , applyFunction
 , getElement
+, getElements
+, extract
 ) where
 
 import Euterpea
@@ -50,13 +52,19 @@ instance (Show a) => Show (OrientedTree a) where
 
 -- converts from a piece of music from orientedTree to Euterpeas 'Music Pitch'
 -- enables us to play the piece as MIDI with built-in Euterpea functions
+
+treeToMusic :: MusicTree -> Music Pitch
+treeToMusic (Val x) = valToMusic (Val x)
+treeToMusic (Group H trees) = line (map treeToMusic trees)
+treeToMusic (Group V trees) = chord (map treeToMusic trees)
+{-
 treeToMusic :: MusicTree -> Music Pitch
 treeToMusic (Val x) = valToMusic (Val x)
 treeToMusic (Group H (x:xs)) = foldl series (treeToMusic x) xs
   where series acc x = acc :+: treeToMusic x
 treeToMusic (Group V (x:xs)) = foldl parallel (treeToMusic x) xs
   where parallel acc x = acc :=: treeToMusic x
-
+-}
 valToMusic :: MusicTree -> Music Pitch
 valToMusic (Val x) = Prim (x)
 
@@ -118,6 +126,13 @@ extract (All : slice) (Group o trees) =
 extract (Some  idxs : slice) (Group o trees) =
    Group o $ map (extract slice) (map (trees !!) idxs)
 
+getElements :: Slice -> OrientedTree a -> [OrientedTree a]
+getElements [All] (Group _ trees) = trees
+getElements [Some idxs] (Group _ trees) = map (trees !!) idxs
+getElements (All : slice) (Group _ trees) = concat $ map (getElements slice) trees
+getElements (Some idxs : slice) (Group _ trees) =
+   concat $ map (getElements slice) (map (trees !!) idxs)
+
 --applies function to every element in slice
 applyFunction :: (a -> a) -> Slice -> OrientedTree a -> OrientedTree a
 applyFunction f _ (Val x) = Val (f x)
@@ -140,20 +155,23 @@ replace (Some idxs : slice) e (Group o trees) =
 replaceVal :: a -> a -> a
 replaceVal new old = new
 
+
 -- slice construction: allows the composition of (Slice -> Slice)
 -- examples that apply to "testTree": (need to be generalized)
 -- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
 -- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
-atChords, atVoices :: [Int] -> Slice -> Slice
-atChords selection [_ , choice] = [Some selection, choice]
-atVoices selection [choice, _] = [choice, Some selection]
+atMotifs, atChords, atVoices :: [Int] -> Slice -> Slice
+atMotifs selection [_, chords, voices] = [Some selection, chords, voices]
+atChords selection [motifs, _ , voices] = [motifs, Some selection, voices]
+atVoices selection [motifs, chords, _] = [motifs, chords, Some selection]
+
 
 -- PRE-FIX TREE ----------------------------------------------------------------
 
 data PrefixTree k v = Leaf k v | Node k [PrefixTree k v] deriving (Show)
 
 type MusicPT =
-   PrefixTree (Slice -> Slice) ((Primitive Pitch) -> (Primitive Pitch))
+   PrefixTree (Slice -> Slice) (MusicTree -> MusicTree)
 
 lookupPT :: (Eq k, Eq v) => [k] -> PrefixTree k v -> Maybe v
 lookupPT [] _ = Nothing
@@ -181,8 +199,11 @@ testPT = Node 'C' [
          ]
 
 
-testTree :: OrientedTree (Primitive Pitch)
-testTree =
+testPtree :: MusicPT
+testPtree =  Leaf (atMotifs [0,1]) (replaceVal testOTree)
+
+testOTree :: OrientedTree (Primitive Pitch)
+testOTree =
               Group H [
                 Group V [
                   Val (Note hn (C,4)),
@@ -206,4 +227,5 @@ testTree =
                   ]
                 ]
 
+-- TODO make Transformations that act on group level work...
 -- TODO Make the tree operations return maybe so we can allow failure..
