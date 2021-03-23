@@ -1,9 +1,10 @@
-module Motif
-( Motif
-, Motif.transpose
-, Motif.reverse
-, Motif.fullReverse
-, Motif.invert
+module Transform(
+  Motif
+, Transform.transpose
+, Transform.reverse
+, Transform.fullReverse
+, Transform.invert
+, Transform.replacePitch
 ) where
 
 import Euterpea
@@ -66,13 +67,13 @@ replacePitches motif pitches  =
   let first = takeWhile (notRest) motif
       second = dropWhile (notRest) motif
       splitPs = splitAt (length first) pitches
-      newPrimPs = zipWith replacePitch first (fst splitPs)
+      newPrimPs = zipWith replacePitch  (fst splitPs) first
       rest = take 1 second
   in newPrimPs ++ rest ++ replacePitches (drop 1 second) (snd splitPs)
 
-replacePitch :: Primitive Pitch -> Pitch -> Primitive Pitch
-replacePitch (Rest dur) _ = Rest dur
-replacePitch (Note dur p) newP = (Note dur newP)
+replacePitch :: Pitch -> Primitive Pitch ->  Primitive Pitch
+replacePitch _ (Rest dur) = Rest dur
+replacePitch newP (Note dur p) = (Note dur newP)
 
 getMaybePitch :: Primitive Pitch -> Maybe Pitch
 getMaybePitch (Note _ p) = Just p
@@ -96,11 +97,11 @@ motif = [Note en (C,4), Rest sn, Note sn (C,4), Note en (E,4), Note en (B,4)]
 motifP :: [Pitch]
 motifP = [(G,4), (A,4), (G,4), (A,4)]
 
-motif_inv = Motif.invert C Major motif
-motif_trans2 = Motif.transpose C Major motif 2
-motif_rev = Motif.reverse motif
+motif_inv = Transform.invert C Major motif
+motif_trans2 = Transform.transpose C Major motif 2
+motif_rev = Transform.reverse motif
 
 test_all = toM $ concat [motif, motif_inv, motif_trans2, motif_rev]
-test_trans = toM $ concat $ map (Motif.transpose C Major motif) [0..8]
+test_trans = toM $ concat $ map (Transform.transpose C Major motif) [0..8]
 
 toM motif = line $ map (\x -> Prim (x)) $ motif
