@@ -57,14 +57,7 @@ treeToMusic :: MusicTree -> Music Pitch
 treeToMusic (Val x) = valToMusic (Val x)
 treeToMusic (Group H trees) = line (map treeToMusic trees)
 treeToMusic (Group V trees) = chord (map treeToMusic trees)
-{-
-treeToMusic :: MusicTree -> Music Pitch
-treeToMusic (Val x) = valToMusic (Val x)
-treeToMusic (Group H (x:xs)) = foldl series (treeToMusic x) xs
-  where series acc x = acc :+: treeToMusic x
-treeToMusic (Group V (x:xs)) = foldl parallel (treeToMusic x) xs
-  where parallel acc x = acc :=: treeToMusic x
--}
+
 valToMusic :: MusicTree -> Music Pitch
 valToMusic (Val x) = Prim (x)
 
@@ -142,7 +135,6 @@ applyFunction f (Some idxs : slice) (Group o trees) =
   Group o $ zipWith zf trees [0..] where
     zf tree idx = if idx `elem` idxs then applyFunction f slice tree else tree
 
-
 replace ::  Slice -> OrientedTree a -> OrientedTree a -> OrientedTree a
 replace [All] e (Group o trees) =  Group o (replicate (length trees) e)
 replace (All : slice) e (Group o trees) = Group o (map (replace slice e) trees)
@@ -154,7 +146,6 @@ replace (Some idxs : slice) e (Group o trees) =
 
 replaceVal :: a -> a -> a
 replaceVal new old = new
-
 
 -- slice construction: allows the composition of (Slice -> Slice)
 -- examples that apply to "testTree": (need to be generalized)
@@ -229,3 +220,4 @@ testOTree =
 
 -- TODO make Transformations that act on group level work...
 -- TODO Make the tree operations return maybe so we can allow failure..
+-- TODO address merging trees
