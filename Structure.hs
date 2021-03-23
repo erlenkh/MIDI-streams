@@ -1,10 +1,16 @@
 module Structure
 ( OrientedTree (..)
 , Orientation (..)
+, MusicTree
+, Choice (..)
 , treeToMusic
+, toGroup
+, fromGroup
 , addToGroup
 , removeFromGroup
 , replaceElement
+, applyFunction
+, getElement
 ) where
 
 import Euterpea
@@ -34,13 +40,13 @@ pad n = " " ++ pad (n-1)
 
 showTree :: (Show a) => Int -> OrientedTree a -> String
 showTree n (Val x) = pad n ++ show x
-showTree n (Group H treez) = "\n" ++ pad n ++ "H\n" ++ horiShow ++ "\n"
-  where horiShow = concat $ map (showTree (n + 2)) treez
+showTree n (Group H treez) = pad n ++ "H\n" ++ horiShow
+  where horiShow = concat $ map (\t -> showTree (n + 2)t ++ "\n") treez
 showTree n (Group V treez) = "\n" ++ pad n ++ "V: " ++ vertShow ++ "\n"
-  where vertShow = concat $ intersperse "," $ map (showTree 1) treez
+  where vertShow = concat $ intersperse " " $ map (showTree 1) treez
 
 instance (Show a) => Show (OrientedTree a) where
-  show x = showTree 0 x
+  show x = "\n" ++ showTree 0 x
 
 -- converts from a piece of music from orientedTree to Euterpeas 'Music Pitch'
 -- enables us to play the piece as MIDI with built-in Euterpea functions
@@ -53,6 +59,13 @@ treeToMusic (Group V (x:xs)) = foldl parallel (treeToMusic x) xs
 
 valToMusic :: MusicTree -> Music Pitch
 valToMusic (Val x) = Prim (x)
+
+toGroup :: Orientation -> [a] -> OrientedTree a
+toGroup H prims = Group H (map (\x -> Val x) prims)
+toGroup V prims = Group V (map (\x -> Val x) prims)
+
+fromGroup :: OrientedTree a -> [a]
+fromGroup (Group o vals) = map (\(Val x) -> x) vals
 
 -- PATH ------------------------------------------------------------------------
 
@@ -84,6 +97,11 @@ replaceElement :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
 replaceElement tree path newElement = newTree
   where newTree = addToGroup (removeFromGroup tree path) newElement path
 
+addElementVert :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
+addElementVert tree path element =
+  let alreadyThere = getElement tree path
+      newE = Group V [alreadyThere, element]
+  in replaceElement tree path newE
 
 -- SLICING ---------------------------------------------------------------------
 
@@ -100,7 +118,6 @@ extract (All : slice) (Group o trees) =
 extract (Some  idxs : slice) (Group o trees) =
    Group o $ map (extract slice) (map (trees !!) idxs)
 
-
 --applies function to every element in slice
 applyFunction :: (a -> a) -> Slice -> OrientedTree a -> OrientedTree a
 applyFunction f _ (Val x) = Val (f x)
@@ -110,8 +127,18 @@ applyFunction f (Some idxs : slice) (Group o trees) =
   Group o $ zipWith zf trees [0..] where
     zf tree idx = if idx `elem` idxs then applyFunction f slice tree else tree
 
-replace :: a -> a -> a
-replace new old = new
+
+replace ::  Slice -> OrientedTree a -> OrientedTree a -> OrientedTree a
+replace [All] e (Group o trees) =  Group o (replicate (length trees) e)
+replace (All : slice) e (Group o trees) = Group o (map (replace slice e) trees)
+replace [Some idxs] e (Group o trees) = Group o $ zipWith zf trees [0..] where
+  zf tree idx = if idx `elem` idxs then e else tree
+replace (Some idxs : slice) e (Group o trees) =
+  Group o $ zipWith zf trees [0..] where
+  zf tree idx = if idx `elem` idxs then replace slice e tree else tree
+
+replaceVal :: a -> a -> a
+replaceVal new old = new
 
 -- slice construction: allows the composition of (Slice -> Slice)
 -- examples that apply to "testTree": (need to be generalized)
@@ -180,4 +207,3 @@ testTree =
                 ]
 
 -- TODO Make the tree operations return maybe so we can allow failure..
--- TODO create slicing abilities like the prefix boyz have done
