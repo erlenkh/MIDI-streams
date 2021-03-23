@@ -38,3 +38,11 @@ mel = Group H $ map (toGroup H) [motif, motif_inv, motif, motif_rev]
 
 mel2 = applyFunction (T.replacePitch ((G,3) :: Pitch)) [Some [1], Some [3]] mel
 mel3 = applyFunction (T.replacePitch ((C,4) :: Pitch)) [Some [3], Some [3]] mel2
+
+sequ = (map (fromGroup) $ getElements [All] mel3)
+lolo = map (T.transpose C Major) sequ
+loli x = map (\trans -> trans x) lolo
+lol = concat $ map (loli) [0..]
+infmel = Group H $ map (toGroup H) lol
+
+--transmel = Group H $ map (toGroup H) lol
