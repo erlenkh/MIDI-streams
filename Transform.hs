@@ -7,6 +7,8 @@ module Transform(
 , Transform.replacePitch
 , Transform.givePitches
 , Transform.giveRhythm
+, Transform.strongCadence
+, Transform.weakCadence
 ) where
 
 import Euterpea
@@ -51,6 +53,13 @@ givePitches giver taker = replacePitches (getPitches giver) taker
 giveRhythm :: Motif -> Motif -> Motif
 giveRhythm giver taker = replacePitches (getPitches taker) giver
 
+
+strongCadence :: Root -> Mode -> Motif -> Motif
+strongCadence root mode motif = changelastSD root mode 0 motif
+
+weakCadence :: Root -> Mode -> Motif -> Motif
+weakCadence root mode motif = changelastSD root mode 4 motif
+
 -- replaces the durations
 replaceDurations :: [Dur] -> Motif -> Motif
 replaceDurations durs motif = zipWith replaceDuration durs motif
@@ -85,6 +94,15 @@ invertSD motifSD =
       invInterSD = map (*(-1)) $ zipWith (-) motifSD pitchAxis
   in zipWith (+) pitchAxis invInterSD
 
+changelastSD :: Root -> Mode -> ScaleDeg -> Motif -> Motif
+changelastSD root mode deg motif =
+  let pitches = getPitches motif
+      lastPitchSD = toScaleDeg root mode $ absPitch $ last pitches
+      nearestSD = (nearestMultiple 7 (lastPitchSD - deg)) + deg
+      nearestP = pitch $ toAbsPitch root mode nearestSD
+  in replacePitches (init pitches ++ [nearestP]) motif
+
+
 replaceDuration :: Dur -> Primitive Pitch -> Primitive Pitch
 replaceDuration newDur (Rest dur) = Rest newDur
 replaceDuration newDur (Note dur p) = Note newDur p
@@ -107,6 +125,9 @@ toAbsPitch root mode = (\(Just x) -> x) . Scale.scaleDeg2AbsPitch root mode
 
 notRest (Rest _ ) = False
 notRest (Note _ _) = True
+
+nearestMultiple :: Int -> Int -> Int
+nearestMultiple n number = round(fromIntegral number/fromIntegral n) * n
 
 -- TESTING ---------------------------------------------------------------------
 
