@@ -6,20 +6,13 @@ module Structure
 , PrefixTree(..)
 , toGroup
 , fromGroup
-, addToGroup
-, removeFromGroup
-, replaceElement
-, replace
-, replaceVal
 , applyGT
 , applyFunction
 , getElement
 , getElements
-, extract
 ) where
 
 import Data.List
-import Control.Applicative
 
 -- ORIENTED TREE ---------------------------------------------------------------
 
@@ -115,7 +108,7 @@ applyFunction f (Some idxs : slice) (Group o trees) =
   Group o $ zipWith zf trees [0..] where
     zf tree idx = if idx `elem` idxs then applyFunction f slice tree else tree
 
---applies function to every group in slice
+--applies group transformation to the groups in slice
 applyGT ::
  Slice -> (OrientedTree a -> OrientedTree a) -> OrientedTree a -> OrientedTree a
 applyGT [All] f (Group o vals) = Group o (map f vals)
@@ -161,6 +154,6 @@ testPT = Node 'C' [
          ]
 
 
-
+-- TODO allow the operation on sequences of notes that are not in the same group
 -- TODO Make the tree operations return maybe so we can allow failure..
 -- TODO address merging trees
