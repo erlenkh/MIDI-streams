@@ -58,9 +58,16 @@ invertSD motifSD =
       invInterSD = map (*(-1)) $ zipWith (-) motifSD pitchAxis
   in zipWith (+) pitchAxis invInterSD
 
+-- replaces the durations
+replaceDurations :: Motif -> [Dur] -> Motif
+replaceDurations motif durs = zipWith replaceDuration durs motif
+
+replaceDuration :: Dur -> Primitive Pitch ->  Primitive Pitch
+replaceDuration newDur (Rest dur) = Rest newDur
+replaceDuration newDur (Note dur p) = Note newDur p
+
 -- replacePitches: takes a sequence of Pitches and a Motif and changes the
 -- Pitches while preserving the Rests and durations.
-
 replacePitches :: Motif -> [Pitch] -> Motif
 replacePitches [] _ = []
 replacePitches motif pitches  =
@@ -73,7 +80,7 @@ replacePitches motif pitches  =
 
 replacePitch :: Pitch -> Primitive Pitch ->  Primitive Pitch
 replacePitch _ (Rest dur) = Rest dur
-replacePitch newP (Note dur p) = (Note dur newP)
+replacePitch newP (Note dur p) = Note dur newP
 
 getMaybePitch :: Primitive Pitch -> Maybe Pitch
 getMaybePitch (Note _ p) = Just p
@@ -94,6 +101,7 @@ notRest (Note _ _) = True
 
 motif :: Motif
 motif = [Note en (C,4), Rest sn, Note sn (C,4), Note en (E,4), Note en (B,4)]
+durs = [qn, en, en, qn, qn]
 motifP :: [Pitch]
 motifP = [(G,4), (A,4), (G,4), (A,4)]
 
