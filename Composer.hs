@@ -3,7 +3,7 @@ import Structure
 import Euterpea
 import qualified Transform as T
 
--- MUSIC TREE ------------------------------------------------------------------
+-- MUSIC TREES ------------------------------------------------------------------
 
 type MusicTree = OrientedTree (Primitive Pitch)
 
@@ -17,9 +17,7 @@ treeToMusic (Group V trees) = chord (map treeToMusic trees)
 valToMusic :: MusicTree -> Music Pitch
 valToMusic (Val x) = Prim (x)
 
--- MUSIC PT --------------------------------------------------------------------
-type MusicPT =
-   PrefixTree (Slice -> Slice) (MusicTree -> MusicTree)
+type MusicPT = PrefixTree (Slice -> Slice) (MusicTree -> MusicTree)
 
 -- SLICE CONSTRUCTION ----------------------------------------------------------
 
@@ -34,30 +32,40 @@ atVoices selection [motifs, chords, _] = [motifs, chords, Some selection]
 
 -- GROUP TRANSFORMATIONS: ------------------------------------------------------
 
-gt :: (T.Motif -> T.Motif) -> (MusicTree -> MusicTree)
-gt f group@(Group o _) = toGroup o $ f $ fromGroup group
+toGT :: (T.Motif -> T.Motif) -> (MusicTree -> MusicTree)
+toGT f group@(Group o _) = toGroup o $ f $ fromGroup group
 
-inv = gt $ T.invert C Major
-rev  = gt $ T.reverse
-transp x = gt $ T.transpose C Major x
-givePs group = gt $ T.givePitches (fromGroup group)
-giveR group = gt $ T.giveRhythm (fromGroup group)
+inv = toGT $ T.invert C Major
+rev  = toGT $ T.reverse
+transp x = toGT $ T.transpose C Major x
+givePs group = toGT $ T.givePitches (fromGroup group)
+giveR group = toGT $ T.giveRhythm (fromGroup group)
+strong = toGT $ T.strongCadence C Major
+weak = toGT $ T.weakCadence C Major
 
--- TESTING MATERIAL: -----------------------------------------------------------
-motif :: T.Motif
+
+-- TESTING ZONE: ---------------------------------------------------------------
+
+p tree = playDev 6 (treeToMusic tree) --quick play
+
+motif, motif2 :: T.Motif
 motif = [Note qn (C,4), Note qn (D,4), Note qn (E,4), Note qn (B,4)]
-motif_inv = T.invert C Major motif
-motif_trans2 = T.transpose C Major 2 motif
-motif_rev = T.reverse motif
+motif2 = [Note qn (C,4), Note qn (C,4), Note qn (B,4), Note qn (E,4)]
 
-mel :: MusicTree
-mel = Group H $ map (toGroup H) [motif, motif_inv, motif, motif_rev]
+base m = (Group H $ map (toGroup H) $  replicate 4 m) :: MusicTree
+period = applyGT [Some[1]] (weak. transp (-2)) .
+  applyGT [Some[3]] (strong . inv) . applyGT [Some[1,3]] (giveR m3) . base
 
-testPtree :: MusicPT
-testPtree =  Leaf (atMotifs [0,1]) (replaceVal testOTree)
+m1, m2, m3 :: MusicTree
+m1 = toGroup H [Note hn (C,3), Note qn (E,3), Note qn (F,3)]
+m2 = toGroup H [Note qn (C,2), Note hn (D,2), Note qn (E,2)]
+m3 = toGroup H [Note qn (C,4), Note qn (D,4), Note hn (B,4)]
 
-testOTree :: OrientedTree (Primitive Pitch)
-testOTree =
+testPT :: MusicPT
+testPT =  Leaf (atMotifs [0,1]) inv
+
+chords :: OrientedTree (Primitive Pitch)
+chords =
               Group H [
                 Group V [
                   Val (Note hn (C,4)),
