@@ -5,26 +5,28 @@ module Transform(
 , Transform.fullReverse
 , Transform.invert
 , Transform.replacePitch
+, Transform.givePitches
+, Transform.giveRhythm
 ) where
 
 import Euterpea
 import Scale
 import Data.List
 
+-- MOTIF TRANSFORMATION IN SCALE CONTEXT --------------------------------------
+
 type Motif = [Primitive Pitch]
 
--- TRANSFORMATION IN SCALE CONTEXT ---------------------------------------------
-
 -- transpose: Transposition of Motif by a given amount of Scale Degrees
-transpose :: Root -> Mode -> Motif -> ScaleDeg -> Motif
-transpose root mode motif deg = map (primTrans root mode deg) motif
+transpose :: Root -> Mode -> ScaleDeg -> Motif -> Motif
+transpose root mode deg motif = map (primTrans root mode deg) motif
 
 -- reverse: Reversion of pitch sequence but not durations or rests
 reverse :: Motif -> Motif
 reverse motif =
   let motifP = getPitches motif -- removes rests
       revMotifP = Data.List.reverse motifP
-  in replacePitches motif revMotifP
+  in replacePitches revMotifP motif
 
 -- fullReverse: Full reversion of motif
 fullReverse :: Motif -> Motif
@@ -37,8 +39,33 @@ invert root mode motif =
       motifSD = map (toScaleDeg root mode) $ map (absPitch) motifP
       invMotifSD = invertSD motifSD
       invMotifP = map (pitch . toAbsPitch root mode) $ invMotifSD
-  in  replacePitches motif invMotifP -- replace inv pitches in motif
+  in  replacePitches invMotifP motif  -- replace inv pitches in motif
 
+
+-- gives pitches of a giver motif to a taker motif
+givePitches :: Motif -> Motif -> Motif
+givePitches giver taker = replacePitches (getPitches giver) taker
+
+-- gives the rhythm (duration and rest info) of a giver motif to a taker motif
+-- returns a new motif with the pitches of the taker and the rhythm of the giver
+giveRhythm :: Motif -> Motif -> Motif
+giveRhythm giver taker = replacePitches (getPitches taker) giver
+
+-- replaces the durations
+replaceDurations :: [Dur] -> Motif -> Motif
+replaceDurations durs motif = zipWith replaceDuration durs motif
+
+-- replacePitches: takes a sequence of Pitches and a Motif and changes the
+-- Pitches while preserving the Rests and durations.
+replacePitches :: [Pitch] -> Motif -> Motif
+replacePitches _ [] = []
+replacePitches  pitches motif  =
+  let first = takeWhile (notRest) motif
+      second = dropWhile (notRest) motif
+      splitPs = splitAt (length first) pitches
+      newPrimPs = zipWith replacePitch  (fst splitPs) first
+      rest = take 1 second
+  in newPrimPs ++ rest ++ replacePitches  (snd splitPs) (drop 1 second)
 
 -- HELPER FUNCTIONS ------------------------------------------------------------
 
@@ -58,27 +85,11 @@ invertSD motifSD =
       invInterSD = map (*(-1)) $ zipWith (-) motifSD pitchAxis
   in zipWith (+) pitchAxis invInterSD
 
--- replaces the durations
-replaceDurations :: Motif -> [Dur] -> Motif
-replaceDurations motif durs = zipWith replaceDuration durs motif
-
-replaceDuration :: Dur -> Primitive Pitch ->  Primitive Pitch
+replaceDuration :: Dur -> Primitive Pitch -> Primitive Pitch
 replaceDuration newDur (Rest dur) = Rest newDur
 replaceDuration newDur (Note dur p) = Note newDur p
 
--- replacePitches: takes a sequence of Pitches and a Motif and changes the
--- Pitches while preserving the Rests and durations.
-replacePitches :: Motif -> [Pitch] -> Motif
-replacePitches [] _ = []
-replacePitches motif pitches  =
-  let first = takeWhile (notRest) motif
-      second = dropWhile (notRest) motif
-      splitPs = splitAt (length first) pitches
-      newPrimPs = zipWith replacePitch  (fst splitPs) first
-      rest = take 1 second
-  in newPrimPs ++ rest ++ replacePitches (drop 1 second) (snd splitPs)
-
-replacePitch :: Pitch -> Primitive Pitch ->  Primitive Pitch
+replacePitch :: Pitch -> Primitive Pitch -> Primitive Pitch
 replacePitch _ (Rest dur) = Rest dur
 replacePitch newP (Note dur p) = Note dur newP
 
@@ -106,10 +117,10 @@ motifP :: [Pitch]
 motifP = [(G,4), (A,4), (G,4), (A,4)]
 
 motif_inv = Transform.invert C Major motif
-motif_trans2 = Transform.transpose C Major motif 2
+motif_trans2 = Transform.transpose C Major 2 motif
 motif_rev = Transform.reverse motif
 
 test_all = toM $ concat [motif, motif_inv, motif_trans2, motif_rev]
-test_trans = toM $ concat $ map (Transform.transpose C Major motif) [0..8]
+test_trans = toM $ concat $ map (\x -> Transform.transpose C Major x motif) [0..8]
 
 toM motif = line $ map (\x -> Prim (x)) $ motif
