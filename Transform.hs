@@ -76,7 +76,20 @@ replacePitches  pitches motif  =
       rest = take 1 second
   in newPrimPs ++ rest ++ replacePitches  (snd splitPs) (drop 1 second)
 
+
+extend :: Rational -> Motif -> Motif
+extend time motif =
+  let motifDur = getTotalDur motif
+      missing = time - motifDur
+  in case signum missing of
+    1 -> motif ++ [Rest (missing :: Dur)]
+    otherwise -> motif
+
+
 -- HELPER FUNCTIONS ------------------------------------------------------------
+
+getTotalDur :: Motif -> Rational
+getTotalDur motif = sum $ map getDur motif
 
 -- primTrans: Transposition of a Primitive Pitch by a given amt of Scale Degrees
 -- NB: fails if pitch is outside of absPitch (0,127) i.e MIDI scale (use Maybe)
@@ -110,6 +123,10 @@ replaceDuration newDur (Note dur p) = Note newDur p
 replacePitch :: Pitch -> Primitive Pitch -> Primitive Pitch
 replacePitch _ (Rest dur) = Rest dur
 replacePitch newP (Note dur p) = Note dur newP
+
+getDur :: Primitive Pitch -> Dur
+getDur (Note dur _) = dur
+getDur (Rest dur) = dur
 
 getMaybePitch :: Primitive Pitch -> Maybe Pitch
 getMaybePitch (Note _ p) = Just p
