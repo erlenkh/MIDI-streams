@@ -5,15 +5,16 @@ import Transform
 import Euterpea
 main = do
   gen <- newStdGen
-  let fp = Main.period gen (fst $ m gen)
+  let fp = Main.period gen motif4
   let newgen = snd $ m gen
-  let sp = Main.period newgen (fst $ m newgen)
+  let sp = Main.period newgen motif4
   playDev 2 $ treeToMusic (Group H [fp, sp])
 
 t = getRandom transformations
 m = getRandom motifs
 
-motif = [Note qn (C,4), Note qn (D,4), Note qn (E,4), Note qn (B,4)]
+motif4 = Transform.transpose C Major (- 7) $ extend 1 motif
+motif = [Note qn (C,4), Rest en, Note en (C,4), Note qn (A,3)]
 motif2 = [Note qn (C,4), Note qn (C,4), Note qn (B,4), Note qn (E,4)]
 motif3 = [Note sn (A,4), Note sn (A,4), Note qn (B,4), Note qn (C,4)]
 
@@ -29,7 +30,7 @@ base m = (Group H $ map (toGroup H) $  replicate 4 m) :: MusicTree
 period :: StdGen -> [Primitive Pitch] -> MusicTree
 period gen motif = applyGT [Some[1]] (weak . fst (t gen)) $
   applyGT [Some[3]] (strong . fst (t gen) ) $
-  applyGT [Some[1,3]] (giveR m3) $
+  applyGT [Some[1,3]] (giveR m1) $
    base motif
 
 section = (toGroup H motif)
