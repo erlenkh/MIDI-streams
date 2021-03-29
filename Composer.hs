@@ -1,3 +1,16 @@
+module Composer
+( MusicTree (..)
+, treeToMusic
+, period
+, inv
+, rev
+, transp
+, giveR
+, strong
+, weak
+)
+where
+
 import Scale
 import Structure
 import Euterpea
@@ -46,11 +59,12 @@ weak = toGT $ T.weakCadence C Major
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
-p tree = playDev 6 (treeToMusic tree) --quick play
+p tree = playDev 2 (treeToMusic tree) --quick play
 
-motif, motif2 :: T.Motif
+motif, motif2, motif3 :: T.Motif
 motif = [Note qn (C,4), Note qn (D,4), Note qn (E,4), Note qn (B,4)]
 motif2 = [Note qn (C,4), Note qn (C,4), Note qn (B,4), Note qn (E,4)]
+motif3 = [Note sn (A,4), Note sn (A,4), Note qn (B,4), Note qn (C,4)]
 
 base m = (Group H $ map (toGroup H) $  replicate 4 m) :: MusicTree
 period = applyGT [Some[1]] (weak. transp (-2)) .
