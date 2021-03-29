@@ -9,6 +9,7 @@ module Transform(
 , Transform.giveRhythm
 , Transform.strongCadence
 , Transform.weakCadence
+, extend
 ) where
 
 import Euterpea
