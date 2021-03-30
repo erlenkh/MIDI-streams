@@ -40,6 +40,7 @@ toGroup V prims = Group V (map (\x -> Val x) prims)
 
 fromGroup :: OrientedTree a -> [a]
 fromGroup (Group o vals) = map (\(Val x) -> x) vals
+-- denne funksjonen må kunne flattene sånn at du kan flate ut en gjeng med grupper..
 
 -- PATH FUNCTIONS --------------------------------------------------------------
 
