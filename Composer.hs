@@ -31,7 +31,7 @@ treeToMusic (Group V trees) = chord (map treeToMusic trees)
 valToMusic :: MusicTree -> Music Pitch
 valToMusic (Val x) = Prim (x)
 
-type MusicPT = PrefixTree (Slice -> Slice) (MusicTree -> MusicTree)
+type MusicPT = PrefixTree GT (Slice -> Slice)
 
 -- SLICE CONSTRUCTION ----------------------------------------------------------
 
@@ -39,13 +39,15 @@ type MusicPT = PrefixTree (Slice -> Slice) (MusicTree -> MusicTree)
 -- examples that apply to "testTree": (need to be generalized)
 -- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
 -- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
-atMotifs, atChords, atVoices :: [Int] -> Slice -> Slice
-atMotifs selection [_, chords, voices] = [Some selection, chords, voices]
-atChords selection [motifs, _ , voices] = [motifs, Some selection, voices]
-atVoices selection [motifs, chords, _] = [motifs, chords, Some selection]
+
+
+atPeriods, atMotifs :: [Int] -> Slice -> Slice
+atPeriods selection [_ , motifs] = [Some selection, motifs]
+atMotifs selection [periods, _] = [periods, Some selection]
 
 -- GROUP TRANSFORMATIONS: ------------------------------------------------------
 type GT = MusicTree -> MusicTree
+
 
 toGT :: (T.Motif -> T.Motif) -> GT
 toGT f group@(Group o _) = toGroup o $ f $ fromGroup group
@@ -63,7 +65,7 @@ ext = toGT . T.extend
 
 -- TRANSFORMATIVE INSTRUCTIONS -------------------------------------------------
 
-data TI = TI { slc :: Slice, gt :: GT}  -- Transformative Instruction
+data TI = TI { slc :: Slice, gt :: GT} -- Transformative Instruction
 
 applyTIs :: [TI] -> MusicTree -> MusicTree
 applyTIs instructions startingTree =
@@ -74,6 +76,17 @@ applyTI (TI slice gt) tree = applyGT slice gt tree
 
 tis2Tree :: [TI] -> MusicTree
 tis2Tree instructions = applyTIs instructions (makeStartingTree instructions)
+
+toTI :: Slice -> ([Slice -> Slice], GT) -> TI
+toTI levels (strans, gtrans) = TI {slc =
+   foldl(\acc f -> f acc) levels strans, gt = gtrans }
+
+pt2Tree :: MusicPT -> MusicTree
+pt2Tree pt =
+  let levels = [Some [0], All]
+      values = getAllValues $ fmap ($ levels) testPT
+      paths = getAllPaths testPT
+  in tis2Tree $ map (toTI levels) $ zip paths values
 
 
 -- TESTING ZONE: ---------------------------------------------------------------
@@ -96,7 +109,16 @@ m3 = toGroup H [Note qn (C,4), Note qn (D,4), Note hn (B,4)]
 m4 = toGroup H [Note qn (C,4), Note en (D,4), Note en (B,4)]
 
 testPT :: MusicPT
-testPT =  Leaf (atMotifs [0,1]) inv
+testPT = Node (atPeriods [0,1]) [
+            Leaf (atMotifs [0,1,2,3]) (insert $ toGroup H motif)
+         ,  Leaf (atMotifs [1,3]) (ext 1 . giveR m3 . inv)
+         ,  Node (atPeriods [1]) [
+              Leaf (atMotifs [0,1,2,3]) (transp 2)
+            ]
+         ,  Leaf (atMotifs [1]) weak
+         ,  Leaf (atMotifs [3]) strong
+         ]
+
 testTIs = [ TI [All, All] (insert $ toGroup H motif),
             TI [Some[1,3], Some[1,3]] inv,
             TI [All, Some[1]] (ext 1 . giveR m3 . weak . transp (-2)),
@@ -112,7 +134,7 @@ lol = [TI [Some[0,1,2,3]] (insert para),
        TI [All, All, Some[3]] (transp (-1))
        ]
 
-para = Group V [chords, applyGT [All](giveR m4 .toGroup H . fromGroup . transp 7) chords]
+para = Group V [chords, applyGT [All] (giveR m4 .toGroup H . fromGroup . transp 7) chords]
 
 startingTree = base motif
 
