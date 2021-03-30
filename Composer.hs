@@ -40,14 +40,12 @@ type MusicPT = PrefixTree GT (Slice -> Slice)
 -- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
 -- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
 
-
 atPeriods, atMotifs :: [Int] -> Slice -> Slice
 atPeriods selection [_ , motifs] = [Some selection, motifs]
 atMotifs selection [periods, _] = [periods, Some selection]
 
 -- GROUP TRANSFORMATIONS: ------------------------------------------------------
 type GT = MusicTree -> MusicTree
-
 
 toGT :: (T.Motif -> T.Motif) -> GT
 toGT f group@(Group o _) = toGroup o $ f $ fromGroup group
@@ -78,12 +76,12 @@ tis2Tree :: [TI] -> MusicTree
 tis2Tree instructions = applyTIs instructions (makeStartingTree instructions)
 
 toTI :: Slice -> ([Slice -> Slice], GT) -> TI
-toTI levels (strans, gtrans) = TI {slc =
-   foldl(\acc f -> f acc) levels strans, gt = gtrans }
+toTI levels (strans, gtrans) =
+   TI {slc = foldl(\acc f -> f acc) levels strans, gt = gtrans }
 
 pt2Tree :: MusicPT -> MusicTree
 pt2Tree pt =
-  let levels = [Some [0], All]
+  let levels = [All, All]
       values = getAllValues $ fmap ($ levels) testPT
       paths = getAllPaths testPT
   in tis2Tree $ map (toTI levels) $ zip paths values

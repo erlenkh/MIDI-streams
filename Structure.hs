@@ -82,7 +82,7 @@ addElementVert tree path element =
 
 -- SLICE FUNCTIONS -------------------------------------------------------------
 
---at each hierarchical level: select either some Branches or ALl
+--at each hierarchical level: select either some Branches or All
 data Choice = Some [Int] | All deriving (Show, Eq)
 
 type Slice = [Choice]
