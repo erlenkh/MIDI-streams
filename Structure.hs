@@ -10,7 +10,8 @@ module Structure
 , applyFunction
 , getElement
 , getElements
-, toTuples
+, getAllPaths
+, getAllValues
 ) where
 
 import Data.List
@@ -82,7 +83,7 @@ addElementVert tree path element =
 -- SLICE FUNCTIONS -------------------------------------------------------------
 
 --at each hierarchical level: select either some Branches or ALl
-data Choice = Some [Int] | All deriving Show
+data Choice = Some [Int] | All deriving (Show, Eq)
 
 type Slice = [Choice]
 
@@ -153,12 +154,12 @@ getAllPaths (Node k trees) =
   concat [map (k:) (getAllPaths t) | (t) <- trees]
 
 
-toTuples :: (Eq k, Eq v) => PrefixTree v k -> [([k], v)]
-toTuples tree =
+getAllValues :: (Eq k) => PrefixTree v k -> [v]
+getAllValues tree =
   let keys = getAllPaths tree
       maybeValues = map (lookupPT tree) keys
       values = map (\(Just x) -> x) maybeValues
-  in zip keys values
+  in values
 
 -- TESTING ---------------------------------------------------------------------
 
