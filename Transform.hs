@@ -9,6 +9,9 @@ module Transform(
 , Transform.giveRhythm
 , Transform.strongCadence
 , Transform.weakCadence
+, Transform.replaceDurations
+, reorder
+, Order (..)
 , extend
 ) where
 
@@ -86,7 +89,14 @@ extend time motif =
     1 -> motif ++ [Rest (missing :: Dur)]
     otherwise -> motif
 
+data Order = RI | FA-- RISING, FALLING
+reorder :: Order -> Motif -> Motif
+reorder RI motif = replacePitches (map pitch $ absPSort motif) motif
+reorder FA motif =
+  replacePitches (map pitch $ Data.List.reverse $ absPSort motif) motif
 
+
+absPSort motif = sort $ map absPitch $ getPitches motif
 -- HELPER FUNCTIONS ------------------------------------------------------------
 
 getTotalDur :: Motif -> Rational
