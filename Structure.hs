@@ -10,6 +10,7 @@ module Structure
 , applyFunction
 , getElement
 , getElements
+, toTuples
 ) where
 
 import Data.List
@@ -127,20 +128,41 @@ replaceVal new old = new
 
 -- PRE-FIX TREE ----------------------------------------------------------------
 
-data PrefixTree k v = Leaf k v | Node k [PrefixTree k v] deriving (Show)
+data PrefixTree v k = Leaf k v | Node k [PrefixTree v k] deriving (Show)
 
-lookupPT :: (Eq k, Eq v) => [k] -> PrefixTree k v -> Maybe v
-lookupPT [] _ = Nothing
-lookupPT [x] (Leaf k v)  = if x == k then Just v else Nothing
-lookupPT (x:xs) (Leaf k v) = Nothing
-lookupPT (x:xs) (Node k ptrees) =  if k == x then check else Nothing
-  where check = case (find (\pt -> lookupPT xs pt /= Nothing) ptrees) of
-                  Just tree -> lookupPT xs tree
+instance Functor (PrefixTree v) where
+  fmap f (Leaf k v) = Leaf (f k) v
+  fmap f (Node k trees) = Node (f k) (map (fmap f) trees)
+
+
+lookupPT :: (Eq k) => PrefixTree v k -> [k] ->  Maybe v
+lookupPT  _ [] = Nothing
+lookupPT (Leaf k v) [x] = if x == k then Just v else Nothing
+lookupPT (Leaf k v) (x:xs) = Nothing
+lookupPT (Node k ptrees) (x:xs) =  if k == x then check else Nothing
+  where check = case (find (\pt -> isJust $ lookupPT pt xs) ptrees) of
+                  Just tree -> lookupPT tree xs
                   Nothing -> Nothing
+
+isJust (Just x) = True
+isJust (Nothing) = False
+
+getAllPaths :: PrefixTree v k -> [[k]]
+getAllPaths (Leaf k v) = [[k]]
+getAllPaths (Node k trees) =
+  concat [map (k:) (getAllPaths t) | (t) <- trees]
+
+
+toTuples :: (Eq k, Eq v) => PrefixTree v k -> [([k], v)]
+toTuples tree =
+  let keys = getAllPaths tree
+      maybeValues = map (lookupPT tree) keys
+      values = map (\(Just x) -> x) maybeValues
+  in zip keys values
 
 -- TESTING ---------------------------------------------------------------------
 
-testPT :: PrefixTree Char Int
+testPT :: PrefixTree Int Char
 testPT = Node 'C' [
           Node 'A' [
             Leaf 'T' 1,
