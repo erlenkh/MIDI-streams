@@ -10,6 +10,7 @@ module Transform(
 , Transform.strongCadence
 , Transform.weakCadence
 , Transform.replaceDurations
+, Transform.movelastSD
 , reorder
 , Order (..)
 , extend
@@ -125,6 +126,14 @@ changelastSD root mode deg motif =
       nearestSD = (nearestMultiple 7 (lastPitchSD - deg)) + deg
       nearestP = pitch $ toAbsPitch root mode nearestSD
   in replacePitches (init pitches ++ [nearestP]) motif
+
+movelastSD :: Root -> Mode -> ScaleDeg -> Motif -> Motif
+movelastSD root mode deg motif =
+  let pitches = getPitches motif
+      lastPitchSD = toScaleDeg root mode $ absPitch $ last pitches
+      newLastPitchSD = lastPitchSD + deg
+      newLastPitchP = pitch $ toAbsPitch root mode newLastPitchSD
+  in replacePitches (init pitches ++ [newLastPitchP]) motif
 
 
 replaceDuration :: Dur -> Primitive Pitch -> Primitive Pitch
