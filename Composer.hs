@@ -92,7 +92,7 @@ pt2Tree pt =
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
-p tree = playDevS 2 $ tempo 0.80 $ (treeToMusic tree) --quick play
+p tree = playDevS 6 $ tempo 0.80 $ (treeToMusic tree) --quick play
 
 motif, motif2, motif3 :: T.Motif
 motif2 = [Note qn (C,4), Note qn (C,4), Note qn (B,3), Note qn (E,4)]
@@ -114,11 +114,11 @@ m3 = toGroup H [Note qn (C,4), Note qn (D,4), Note hn (B,4)]
 cvMotif :: MusicTree
 cvMotif = toGroup H [Note en (C,4), Note en (C,4), Note en (C,4), Note en (C,4)]
 cvMotif2 = toGroup H [Rest sn, Note en (C,4), Note en (C,4), Note en (C,4), Note sn (C,4)]
-
+cMajor = toGroup V [Note hn (C,4), Note hn (G,3)]
 -- first attempt at "cellevevet"
 cv :: MusicPT
 cv = Node (atPeriods [0,1,2,3,4,5,6,7]) [
-         Node (atVoices [0] ) [
+         Node (atVoices [0] ) [ --
             Leaf (atMotifs [0,1,2,3,4,5,6,7]) (insert $ transp (-7) cvMotif)
          ,  Leaf (atMotifs [2,3]) (transp (-2))
          ,  Leaf (atMotifs [4,5]) (transp (-4))
@@ -130,7 +130,16 @@ cv = Node (atPeriods [0,1,2,3,4,5,6,7]) [
           Leaf (atMotifs [0,1,2,3,4,5,6,7]) (insert $ cvMotif2)
         , Leaf (atPeriods [3,5,7] . atMotifs [7]) (transp (-1))
         ]
-     ,  Leaf (atVoices [0,1] . atPeriods [4,5,6,7,8] . atMotifs [0,1,2,3,4,5,6,7]) (transp (-3))
+     ,  Node (atPeriods [4,5]) [
+          Node (atVoices [0,1]) [
+          Leaf (atMotifs [0,1,2,3,4,5,6,7]) (transp (-3))
+          ]
+        , Node (atVoices [1]) [
+            Leaf (atMotifs [3,7]) (transp (-1))
+          , Leaf (atMotifs [2]) (transp(1))
+          ]
+       ]
+     , Leaf (atPeriods [8] . atMotifs[0]) (insert $ cMajor)
      ]
 
 -- need to combine multiplegroups and act on them like 1 !!
