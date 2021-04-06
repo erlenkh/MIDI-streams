@@ -43,7 +43,6 @@ absPitch2ScaleDeg :: Root -> Mode -> AbsPitch -> Maybe ScaleDeg
 absPitch2ScaleDeg root mode absP =
   elemIndex absP $ createFullMIDIScale root mode
 
-
 getModeIntervals :: Mode -> [AbsPitch]
 getModeIntervals mode =
   let majorIntervals = [2, 2, 1, 2, 2, 2, 1]
@@ -52,3 +51,5 @@ getModeIntervals mode =
       modeIdxs = Map.fromList $ zip modeOrder [0..]
       modeIdx = modeIdxs Map.! mode
   in drop modeIdx majorIntervals ++ take modeIdx majorIntervals
+
+  --TODO rethink scale representation. Maybe Scale root intervals
