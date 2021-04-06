@@ -15,6 +15,7 @@ module Structure
 ) where
 
 import Data.List
+import Control.Monad.State
 
 -- ORIENTED TREE ---------------------------------------------------------------
 
@@ -42,8 +43,23 @@ toGroup V prims = Group V (map (\x -> Val x) prims)
 
 fromGroup :: OrientedTree a -> [a]
 fromGroup (Group o vals) = map (\(Val x) -> x) vals
--- denne funksjonen må kunne flattene sånn at du kan flate ut en gjeng med grupper..
 
+flatten :: OrientedTree a -> [a]
+flatten (Val x) = [x]
+flatten (Group _ vals) = concat $ map flatten vals
+
+-- elevates a list of x's to the grouping structure specified by an input tree:
+
+elevate :: [a] -> OrientedTree a -> OrientedTree a
+elevate (x:xs) (Val y) = Val x
+elevate (x:xs) (Group o vals) =
+  Group o $ foldl (\acc v -> acc ++ [elevate xs v]) [] vals
+
+
+repl ys xs = zipWith (\y x -> y) ys xs
+map' f xs = foldl (\acc x -> acc ++ [(f x, (snd $ last acc) + 1)]) [(0, 0)] xs
+
+xtract = extract [Some[2]] testMT
 -- PATH FUNCTIONS --------------------------------------------------------------
 
 type Path = [Int]
@@ -162,6 +178,33 @@ getAllValues tree =
   in values
 
 -- TESTING ---------------------------------------------------------------------
+
+testMT :: OrientedTree Char
+testMT =     Group H [
+                Group V [
+                  Val 'C',
+                  Val 'A',
+                  Val 'T'
+                ],
+                Group V [
+                  Val 'D',
+                  Val 'O',
+                  Val 'G'
+                ],
+                Group H [
+                  Group H [
+                    Val 'K',
+                    Val 'I',
+                    Val 'L'
+                  ],
+                  Group H [
+                    Val 'L',
+                    Val 'E',
+                    Val 'R'
+                  ]
+                ]
+              ]
+
 
 testPT :: PrefixTree Int Char
 testPT = Node 'C' [
