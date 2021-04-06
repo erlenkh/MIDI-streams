@@ -7,6 +7,8 @@ module Scale
 , ScaleDeg
 ) where
 
+  -- TODO: Fix scale.. define it so that it is just one value, not a root and a mode
+
 import Euterpea
 import Data.List
 import qualified Data.Map as Map
@@ -14,8 +16,10 @@ import qualified Data.Map as Map
 type Root = PitchClass
 type ScaleDeg = Int
 
-getScaleNotes :: Root -> Octave -> Mode -> [Pitch]
-getScaleNotes root octave mode =
+data Scale = Scale Root [Int] -- scale?
+
+getScaleNotes :: Root -> Mode -> Octave -> [Pitch]
+getScaleNotes root mode octave =
   let modeIntervals = getModeIntervals mode
       rootAbs = absPitch (root, octave)
       folding_func acc x = head acc + x : acc
@@ -24,7 +28,7 @@ getScaleNotes root octave mode =
 
 createFullScale :: Root -> Mode -> [AbsPitch]
 createFullScale root mode =
-  let octave_scale octave = init $ getScaleNotes root octave mode
+  let octave_scale octave = init $ getScaleNotes root mode octave
   in map absPitch $ concat $ map octave_scale [-1..9]
 
 createFullMIDIScale :: Root -> Mode -> [AbsPitch]

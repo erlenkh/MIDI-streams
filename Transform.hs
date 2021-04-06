@@ -11,6 +11,7 @@ module Transform(
 , Transform.weakCadence
 , Transform.replaceDurations
 , Transform.movelastSD
+, Transform.cTrans 
 , reorder
 , Order (..)
 , extend
@@ -99,6 +100,13 @@ reorder FA motif =
 
 absPSort motif = sort $ map absPitch $ getPitches motif
 -- HELPER FUNCTIONS ------------------------------------------------------------
+
+cTrans :: AbsPitch -> Motif -> Motif
+cTrans ap motif = map (cPrimTrans ap) motif
+
+cPrimTrans :: AbsPitch -> Primitive Pitch -> Primitive Pitch
+cPrimTrans ap (Note dur p) = Note dur (pitch $ absPitch p + ap)
+cPrimTrans ap (Rest dur) = (Rest dur)
 
 getTotalDur :: Motif -> Rational
 getTotalDur motif = sum $ map getDur motif
