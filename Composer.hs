@@ -141,6 +141,7 @@ cv = Node (atMotifs [0,1,2,3,4,5,6,7]) [
            ,  Leaf (atMotifs [2,3,4,5,6,7]) (transp (-5))
            ]
         ]
+    , Leaf (atPeriods [8] . atMotifs[0]) (insert $ cMajor)
     ]
 
 -- need to combine multiplegroups and act on them like 1 !!
