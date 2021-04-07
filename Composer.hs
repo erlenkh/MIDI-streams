@@ -50,7 +50,7 @@ atMotifs selection [a, b, c] = [a, b, Some selection ]
 type GT = MusicTree -> MusicTree
 
 toGT :: (T.Motif -> T.Motif) -> GT
-toGT f group@(Group o _) = toGroup o $ f $ fromGroup group
+toGT f = applySF f
 
 inv = toGT $ T.invert C Major
 rev  = toGT $ T.reverse
@@ -64,6 +64,9 @@ insert new old = new
 ext = toGT . T.extend
 mlSD x = toGT $ T.movelastSD C Major x
 ct = toGT . T.cTrans
+
+invGT :: MusicTree -> MusicTree
+invGT = applySF $ T.invert C Major
 
 -- TRANSFORMATIVE INSTRUCTIONS -------------------------------------------------
 
@@ -195,6 +198,35 @@ chords =
                   Val (Note hn (B,4))
                   ]
                 ]
+
+
+melody :: MusicTree
+melody = Group H [
+              Group H [
+                  Group H [
+                    Val (Note hn (C,4)),
+                    Val (Note hn (E,4)),
+                    Val (Note hn (G,4))
+                    ],
+                  Group H [
+                    Val (Note hn (C,4)),
+                    Val (Note hn (E,4)),
+                    Val (Note hn (G,4))
+                    ]
+              ]
+          ,   Group H [
+                    Group H [
+                      Val (Note hn (C,4)),
+                      Val (Note hn (E,4)),
+                      Val (Note hn (G,4))
+                      ],
+                    Group H [
+                      Val (Note hn (D,4)),
+                      Val (Note hn (E,4)),
+                      Val (Note hn (G,4))
+                      ]
+                ]
+          ]
 
 -- MODIFIED YAN HAN: -----------------------------------------------------------
 
