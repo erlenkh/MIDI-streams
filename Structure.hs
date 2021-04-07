@@ -12,16 +12,22 @@ module Structure
 , getElements
 , getAllPaths
 , getAllValues
+, applySF
+, flatten
+, elevate
 ) where
 
 import Data.List
-import Control.Monad.State
 
 -- ORIENTED TREE ---------------------------------------------------------------
 
 data Orientation = H | V deriving (Show)  -- Horizontal | Vertical
 
 data OrientedTree a = Val a | Group Orientation [OrientedTree a]
+
+instance Functor (OrientedTree) where
+  fmap f (Val a) = Val (f a)
+  fmap f (Group o trees) = Group o (map (fmap f) trees)
 
 pad :: Int -> String
 pad 0 = ""
@@ -48,16 +54,28 @@ flatten :: OrientedTree a -> [a]
 flatten (Val x) = [x]
 flatten (Group _ vals) = concat $ map flatten vals
 
--- elevates a list of x's to the grouping structure specified by an input tree:
-
 elevate :: [a] -> OrientedTree a -> OrientedTree a
-elevate (x:xs) (Val y) = Val x
-elevate (x:xs) (Group o vals) =
-  Group o $ foldl (\acc v -> acc ++ [elevate xs v]) [] vals
+elevate flat tree = fmap ff $ enumerate tree where
+  ff (idx, value) = if idx < length flat then flat !! idx else value
+
+--flattens tree, applies a sequential function, and elevates to original form
+applySF :: ([a] -> [a]) -> OrientedTree a -> OrientedTree a
+applySF sf tree = elevate (sf $ flatten tree) tree
+
+-- enumerates each Val from left to right
+enumerate :: OrientedTree a -> OrientedTree (Int, a)
+enumerate = snd . enumerate' 0
+
+enumerate' :: Int -> OrientedTree a -> (Int, OrientedTree (Int, a))
+enumerate' num (Val x) = (1, Val (num, x))
+enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
+  numGroups = foldl ff [(enumerate' num x)] xs
+  ff acc x = acc ++ [enumerate' (num + size acc) x]
+  size = sum . map fst
+  numTrees = map snd numGroups
 
 
-repl ys xs = zipWith (\y x -> y) ys xs
-map' f xs = foldl (\acc x -> acc ++ [(f x, (snd $ last acc) + 1)]) [(0, 0)] xs
+
 
 xtract = extract [Some[2]] testMT
 -- PATH FUNCTIONS --------------------------------------------------------------
@@ -95,6 +113,7 @@ addElementVert tree path element =
   let alreadyThere = getElement tree path
       newE = Group V [alreadyThere, element]
   in replaceElement tree path newE
+
 
 -- SLICE FUNCTIONS -------------------------------------------------------------
 
