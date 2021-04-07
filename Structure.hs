@@ -71,7 +71,7 @@ enumerate' :: Int -> OrientedTree a -> (Int, OrientedTree (Int, a))
 enumerate' num (Val x) = (1, Val (num, x))
 enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
   numGroups = foldl ff [(enumerate' num x)] xs
-  ff prevGroups x = acc ++ [enumerate' (num + size prevGroups) x]
+  ff prevGroups x = prevGroups ++ [enumerate' (num + size prevGroups) x]
   size = sum . map fst
   numTrees = map snd numGroups
 
