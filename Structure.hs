@@ -66,11 +66,12 @@ applySF sf tree = elevate (sf $ flatten tree) tree
 enumerate :: OrientedTree a -> OrientedTree (Int, a)
 enumerate = snd . enumerate' 0
 
+-- maybe make this only enumerate what is in the slice?
 enumerate' :: Int -> OrientedTree a -> (Int, OrientedTree (Int, a))
 enumerate' num (Val x) = (1, Val (num, x))
 enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
   numGroups = foldl ff [(enumerate' num x)] xs
-  ff acc x = acc ++ [enumerate' (num + size acc) x]
+  ff prevGroups x = acc ++ [enumerate' (num + size prevGroups) x]
   size = sum . map fst
   numTrees = map snd numGroups
 
