@@ -98,23 +98,6 @@ pt2Tree pt =
 
 p tree = playDevS 6 $ tempo 0.80 $ (treeToMusic tree) --quick play
 
-motif, motif2, motif3 :: T.Motif
-motif2 = [Note qn (C,4), Note qn (C,4), Note qn (B,3), Note qn (E,4)]
-motif3 = [Note sn (A,4), Note sn (A,4), Note qn (B,4), Note qn (C,4)]
-
-base m = (Group H $ map (toGroup H) $  replicate 4 m) :: MusicTree
-period = applyGT [Some[1]] (weak. transp (-2)) .
-  applyGT [Some[3]] (strong . inv) . applyGT [Some[1,3]] (giveR m3) . base
-
-m1, m2, m3, m4 :: MusicTree
-m1 = toGroup H [Note hn (C,3), Note qn (E,3), Note qn (F,3)]
-m2 = toGroup H [Note qn (C,2), Note hn (D,2), Note qn (E,2)]
-m4 = toGroup H [Note qn (C,4), Note en (D,4), Note en (B,4)]
-
-
-motif = [Note qn (C,4), Rest en, Note en (D,4), Note qn (E,4), Note qn (B,4)]
-m3 = toGroup H [Note qn (C,4), Note qn (D,4), Note hn (B,4)]
-
 -- simplified version of "cellevevet"
 
 cvMotif :: MusicTree
