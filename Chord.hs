@@ -1,3 +1,8 @@
+module Chord(
+  Chord(..)
+, getTriad
+) where
+
 import Euterpea
 import Scale
 import Data.List
@@ -14,6 +19,9 @@ getTriad r@(rootPC, octave) mode =
       third = scale !! 2
       fifth = scale !! 4
   in Chord {root = rootPC, pitches = [r,third, fifth]}
+
+
+
 
 -- set inversion. works, but can be simplified
 setInversion :: Int -> Chord -> Chord
