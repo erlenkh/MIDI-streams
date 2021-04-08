@@ -1,7 +1,6 @@
 module Composer
 ( MusicTree (..)
 , treeToMusic
-, period
 , inv
 , rev
 , transp
@@ -16,7 +15,7 @@ import Scale
 import Structure
 import Euterpea
 import qualified Transform as T
-
+import Chord
 -- MUSIC TREES ------------------------------------------------------------------
 
 type MusicTree = OrientedTree (Primitive Pitch)
@@ -41,10 +40,6 @@ type MusicPT = PrefixTree GT (Slice -> Slice)
 -- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
 -- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
 
-atVoices, atPeriods, atMotifs :: [Int] -> Slice -> Slice
-atVoices selection [a, b, c] = [Some selection, b, c]
-atPeriods selection [a, b, c] = [a, Some selection, c]
-atMotifs selection [a, b, c] = [a, b, Some selection ]
 
 -- GROUP TRANSFORMATIONS: ------------------------------------------------------
 type GT = MusicTree -> MusicTree
@@ -61,7 +56,6 @@ strong = toGT $ T.strongCadence C Major
 weak = toGT $ T.weakCadence C Major
 ro = toGT . T.reorder
 insert new old = new
-ext = toGT . T.extend
 mlSD x = toGT $ T.movelastSD C Major x
 ct = toGT . T.cTrans
 
@@ -96,9 +90,60 @@ pt2Tree pt =
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
+atPeriods selection [a,b,c] = [Some selection, b, c]
+atPhrases selection [a,b,c] = [a, Some selection,c]
+atMeasures selection [a,b,c] = [a,b, Some selection]
+
 p tree = playDevS 6 $ tempo 0.80 $ (treeToMusic tree) --quick play
 
+mkChord pitch mode dur = map (\p -> Note dur p) $ pitches $ getTriad pitch mode
+
+mc p o m = insert $ toGroup V $ mkChord (p,o) m hn
+
+
+cv_chords = Node (atPeriods [0]) [
+              Node (atMeasures[0,1]) [
+                  Leaf (atPhrases [0]) (mc C 3 Major)
+              ,   Leaf (atPhrases [1]) (mc A 2 Minor)
+              ,   Leaf (atPhrases [2]) (mc F 2 Major)
+              ,   Node (atPhrases [3]) [
+                      Leaf (atMeasures[0]) (mc D 3 Minor)
+                  ,   Leaf (atMeasures[1]) (mc G 2 Major)
+                  ]
+              ]
+            , Leaf (atPhrases [0,1,2,3]) (toCV)
+            , Node (atMeasures[1]) [
+                Leaf (atPhrases [0,1] . atMeasures[1]) (mlSD (-1))
+            ]
+            ]
+
+toCV :: MusicTree -> MusicTree
+toCV (Group V notes) =
+  let Val (Note dur root) = head notes
+      voice1 = [Note en root] :: T.Motif
+      voice2 = [Note en (C,4)] :: T.Motif
+      f = concat . replicate 4
+  in Group V [  Group H (map toVal $ f voice1)
+             ,  Group H ( map toVal $ T.fit 0.5 $ (Rest sn :: Primitive Pitch) : f voice2)
+             ]
+
+toVal = (\x -> Val x)
+
+{-
+toCV :: MusicTree -> MusicTree
+toCV (Group V notes) =
+  let Val (Note dur root) = head notes
+      rhytmicroot = [Note sn root, Note sn (C,4)] :: T.Motif
+  in Group H (map (\x -> Val x) $ concat $ replicate 4 rhytmicroot)
+-}
+
 -- simplified version of "cellevevet"
+
+{-
+atVoices, atPeriods, atMotifs :: [Int] -> Slice -> Slice
+atVoices selection [a, b, c] = [Some selection, b, c]
+atPeriods selection [a, b, c] = [a, Some selection, c]
+atMotifs selection [a, b, c] = [a, b, Some selection ]
 
 cvMotif :: MusicTree
 cvMotif = toGroup H [Note en (C,4), Note en (C,4), Note en (C,4), Note en (C,4)]
@@ -157,6 +202,7 @@ cv2= Node (atPeriods [0,1,2,3,4,5,6,7]) [
         , Leaf (atPeriods [8] . atMotifs[0]) (insert $ cMajor)
         ]
 
+-}
 chords :: OrientedTree (Primitive Pitch)
 chords =
               Group H [
