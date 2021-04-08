@@ -76,9 +76,6 @@ enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
   numTrees = map snd numGroups
 
 
-
-
-xtract = extract [Some[2]] testMT
 -- PATH FUNCTIONS --------------------------------------------------------------
 
 type Path = [Int]
@@ -224,6 +221,8 @@ testMT =     Group H [
                   ]
                 ]
               ]
+
+xtract = extract [Some[2]] testMT
 
 
 testPT :: PrefixTree Int Char
