@@ -11,10 +11,10 @@ module Transform(
 , Transform.weakCadence
 , Transform.replaceDurations
 , Transform.movelastSD
-, Transform.cTrans 
+, Transform.cTrans
 , reorder
 , Order (..)
-, extend
+, fit
 ) where
 
 import Euterpea
@@ -49,7 +49,6 @@ invert root mode motif =
       invMotifP = map (pitch . toAbsPitch root mode) $ invMotifSD
   in  replacePitches invMotifP motif  -- replace inv pitches in motif
 
-
 -- gives pitches of a giver motif to a taker motif
 givePitches :: Motif -> Motif -> Motif
 givePitches giver taker = replacePitches (getPitches giver) taker
@@ -83,13 +82,26 @@ replacePitches  pitches motif  =
   in newPrimPs ++ rest ++ replacePitches  (snd splitPs) (drop 1 second)
 
 
-extend :: Rational -> Motif -> Motif
-extend time motif =
+fit :: Rational -> Motif -> Motif
+fit time motif =
+  let missing = getMissing time motif
+      missing1Short = getMissing time (init motif)
+  in case signum missing of
+    1         -> motif ++ [Rest (missing :: Dur)]
+    (-1)      -> if signum missing1Short == 1 -- if its too short with one less note
+                  then  init motif ++ [changeDur missing (last motif)]
+                else fit time (init motif) -- remove last note..
+    otherwise -> motif
+
+changeDur :: Dur -> Primitive Pitch -> Primitive Pitch
+changeDur diff (Rest dur) = Rest (dur + diff)
+changeDur diff (Note dur p) = Note (dur + diff) p
+
+getMissing :: Rational -> Motif -> Rational
+getMissing time motif =
   let motifDur = getTotalDur motif
       missing = time - motifDur
-  in case signum missing of
-    1 -> motif ++ [Rest (missing :: Dur)]
-    otherwise -> motif
+  in missing
 
 data Order = RI | FA-- RISING, FALLING
 reorder :: Order -> Motif -> Motif
