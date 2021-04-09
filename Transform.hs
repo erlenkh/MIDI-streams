@@ -10,11 +10,13 @@ module Transform(
 , Transform.strongCadence
 , Transform.weakCadence
 , Transform.replaceDurations
+, Transform.replaceDuration
 , Transform.movelastSD
 , Transform.cTrans
 , reorder
 , Order (..)
 , fit
+, getPitches
 ) where
 
 import Euterpea
