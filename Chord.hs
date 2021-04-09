@@ -14,14 +14,12 @@ data Chord = Chord { root :: PitchClass
                    } deriving (Show)
 
 getTriad :: Pitch -> Mode -> Chord
-getTriad r@(rootPC, octave) mode =
+getTriad pitch mode = getChord pitch mode [2,4]
+
+getChord :: Pitch -> Mode -> [Int] -> Chord
+getChord r@(rootPC, octave) mode intervals =
   let scale = getScaleNotes rootPC mode octave
-      third = scale !! 2
-      fifth = scale !! 4
-  in Chord {root = rootPC, pitches = [r,third, fifth]}
-
-
-
+  in Chord {root = rootPC, pitches = r:(map (scale !!) intervals)}
 
 -- set inversion. works, but can be simplified
 setInversion :: Int -> Chord -> Chord
