@@ -15,6 +15,8 @@ module Structure
 , applySF
 , flatten
 , elevate
+, depth
+, extract
 ) where
 
 import Data.List
@@ -193,6 +195,10 @@ getAllValues tree =
       maybeValues = map (lookupPT tree) keys
       values = map (\(Just x) -> x) maybeValues
   in values
+
+depth :: PrefixTree v k -> Int
+depth (Leaf k v) = 1
+depth (Node k trees) = 1 + maximum (map depth trees)
 
 -- TESTING ---------------------------------------------------------------------
 
