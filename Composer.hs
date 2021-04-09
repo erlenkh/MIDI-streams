@@ -17,7 +17,7 @@ import Euterpea
 import qualified Transform as T
 import Chord
 import qualified Data.List as L
--- MUSIC TREES ------------------------------------------------------------------
+-- MUSIC TREE  ------------------------------------------------------------------
 
 type MusicTree = OrientedTree (Primitive Pitch)
 
@@ -32,28 +32,6 @@ valToMusic :: MusicTree -> Music (Pitch, Volume)
 valToMusic (Val (Note dur p)) = Prim ((Note dur (p, 75)))
 valToMusic (Val (Rest dur)) = Prim (Rest dur)
 
-type MusicPT = PrefixTree GT (Slice -> Slice)
-
--- SLICE CONSTRUCTION ----------------------------------------------------------
-
--- slice construction: allows the composition of (Slice -> Slice)
--- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
--- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
-
-atPeriods  = atDepth 0
-atPhrases = atDepth 1
-atMeasures = atDepth 2
-
---crashes if lvl >= length slice (might fix with Maybe)
-atLevel :: Int -> [Int] -> Slice -> Slice
-atLevel lvl selection slice =
-  let (first, second) = splitAt lvl (reverse slice)
-  in reverse $ first ++ [Some selection] ++ tail second
-
-atDepth :: Int -> [Int] -> Slice -> Slice
-atDepth lvl selection slice =
-  let (first, second) = splitAt lvl slice
-  in first ++ [Some selection] ++ tail second
 
 -- GROUP TRANSFORMATIONS: ------------------------------------------------------
 type GT = MusicTree -> MusicTree
@@ -80,54 +58,76 @@ invGT = applySF $ T.invert C Major
 
 data TI = TI { slc :: Slice, gt :: GT}  -- Transformative Instruction
 
-
--- TRANSFORMATIVE INSTRUCTION 2 MUSIC TREE -------------------------------------
-tis2Tree :: [TI] -> MusicTree
-tis2Tree instructions = applyTIs instructions (makeStartingTree instructions)
+tis2MT :: [TI] -> MusicTree
+tis2MT tis = applyTIs tis (makeStartingTree tis)
 
 applyTIs :: [TI] -> MusicTree -> MusicTree
-applyTIs instructions startingTree =
-  foldl (flip applyTI) startingTree instructions
+applyTIs tis tree =
+  foldl (flip applyTI) tree tis
 
 applyTI :: TI -> MusicTree -> MusicTree
 applyTI (TI slice gt) tree = applyGT slice gt tree
 
--- PREFIXTREE 2 TRANSFORMATIVE INSTRUCTIONS ------------------------------------
+-- SLICE TRANSFORMATIONS -------------------------------------------------------
 
-flattenSTs :: Slice -> [Slice -> Slice] -> Slice
+-- slice transformations: construction of slices by composition STs
+
+-- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
+-- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
+
+type ST = (Slice -> Slice)
+
+atPeriods  = atDepth 0
+atPhrases = atDepth 1
+atMeasures = atDepth 2
+
+--crashes if lvl >= length slice (might fix with Maybe)
+atLevel :: Int -> [Int] -> (Slice -> Slice)
+atLevel lvl selection slice =
+  let (first, second) = splitAt lvl (reverse slice)
+  in reverse $ first ++ [Some selection] ++ tail second
+
+atDepth :: Int -> [Int] -> (Slice -> Slice)
+atDepth lvl selection slice =
+  let (first, second) = splitAt lvl slice
+  in first ++ [Some selection] ++ tail second
+
+flattenSTs :: Slice -> [(Slice -> Slice)] -> Slice
 flattenSTs levels sts = foldl(\acc f -> f acc) levels sts
 
-tightFlattenSts :: [Slice -> Slice] -> Slice
-tightFlattenSts sts = flattenSTs (getAlls sts) sts
-
-getAlls sts = replicate ((getMaxDepth sts) + 1) All
-
-toTI :: ([Slice -> Slice], GT) -> TI
-toTI (sts, gtrans) = TI {slc = tightFlattenSts sts, gt = gtrans}
-
-pt2TIs :: MusicPT -> [TI]
-pt2TIs pt =
-  let stss = getAllPaths pt
-      maxLevels = getAlls $ concat stss
-      gts = getAllValues $ fmap ($ maxLevels) pt
-  in map (toTI) $ zip stss gts
-
-pt2MT :: MusicPT -> MusicTree
-pt2MT pt = tis2Tree $ pt2TIs pt
+getMaxLevels :: [Slice -> Slice] -> Slice
+getMaxLevels sts = replicate ((getMaxDepth sts) + 1) All
 
 getMaxDepth :: [Slice -> Slice] -> Int
 getMaxDepth sts = maximum $ map getDepth sts
 
--- a song cannot have more that 666 hierarchical levels, should be generalized
+-- a piece cannot have more that 666 hierarchical levels, should be generalized
 getDepth :: (Slice -> Slice) -> Int
 getDepth sTrans = maximum $ L.findIndices (isSome) $ sTrans $ replicate (666) All
 
 isSome (Some xs) = True
 isSome _  = False
 
+-- MUSIC PT  -------------------------------------------------------------------
+
+type MusicPT = PrefixTree GT (Slice -> Slice)
+
+toTI :: ([Slice -> Slice], GT) -> TI
+toTI (sts, gtrans) = TI {slc = flattenSTs (getMaxLevels sts) sts, gt = gtrans}
+
+pt2TIs :: MusicPT -> [TI]
+pt2TIs pt =
+  let stss = getAllPaths pt
+      maxLevels = getMaxLevels $ concat stss
+      gts = getAllValues $ fmap ($ maxLevels) pt
+  in map (toTI) $ zip stss gts
+
+pt2MT :: MusicPT -> MusicTree
+pt2MT pt = tis2MT $ pt2TIs pt
+
+getSlices :: MusicPT -> [Slice]
 getSlices pt = map slc $ pt2TIs pt
 
-test = applyTIs (pt2TIs lol) (pt2MT dt)
 -- TESTING ZONE: ---------------------------------------------------------------
 
 
@@ -166,29 +166,17 @@ cv_chords = Node (atPeriods [0,1,2,3,4,5,6,7]) [
               ]
             ]
 
-dt = Node (atDepth 0 [0])[
-        Leaf (atDepth 1 [0,1]) (mc C 3 Major)
-     ,  Leaf (atDepth 1 [0]) (toCV)
-     , Node (atDepth 1 [0]) [
-        Leaf (atDepth 2 [1]) (transp 2)
-        ]
-    ]
-lol = Node (atDepth 0 [0]) [
-        Node (atDepth 1 [0]) [
-            Leaf (atDepth 2 [0]) (transp 2)
-          ]
-      ]
-
 
 toCV :: MusicTree -> MusicTree
-toCV (Group V notes) =
-  let Val (Note dur root) = head notes
-      voice1 = [Note en root] :: T.Motif
+toCV tree =
+  let notes = flatten tree
+      voice1 = [head notes] :: T.Motif
       voice2 = [Note en (C,4)] :: T.Motif
       f = concat . replicate 4
   in Group V [  Group H (map toVal $ f voice1)
              ,  Group H ( map toVal $ T.fit 0.5 $ (Rest sn :: Primitive Pitch) : f voice2)
              ]
+
 {-
 toCV2 :: MusicTree -> MusicTree
 toCV2 (Group V notes) =
@@ -201,7 +189,6 @@ toCV2 (Group V notes) =
             ]
 -}
 tes = [Val $ Note en (C,4), Val $ Note en (C,3)]
-
 
 toVal = (\x -> Val x)
 
