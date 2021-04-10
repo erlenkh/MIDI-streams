@@ -25,6 +25,8 @@ import Data.List
 
 -- MOTIF TRANSFORMATION IN SCALE CONTEXT --------------------------------------
 
+--TODO: Clean up, rename to comply with standards, and handle Maybe better...
+
 type Motif = [Primitive Pitch]
 
 -- transpose: Transposition of Motif by a given amount of Scale Degrees
