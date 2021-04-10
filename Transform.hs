@@ -46,9 +46,9 @@ fullReverse motif = Data.List.reverse motif
 invert :: Root -> Mode -> Motif -> Motif
 invert root mode motif =
   let motifP = getPitches motif -- removes rests
-      motifSD = map (toScaleDeg root mode) $ map (absPitch) motifP
+      motifSD = map (toSD root mode) $ map (absPitch) motifP
       invMotifSD = invertSD motifSD
-      invMotifP = map (pitch . toAbsPitch root mode) $ invMotifSD
+      invMotifP = map (pitch . toAP root mode) $ invMotifSD
   in  replacePitches invMotifP motif  -- replace inv pitches in motif
 
 -- gives pitches of a giver motif to a taker motif
@@ -60,14 +60,12 @@ givePitches giver taker = replacePitches (getPitches giver) taker
 giveRhythm :: Motif -> Motif -> Motif
 giveRhythm giver taker = replacePitches (getPitches taker) giver
 
-
 strongCadence :: Root -> Mode -> Motif -> Motif
 strongCadence root mode motif = changelastSD root mode 0 motif
 
 weakCadence :: Root -> Mode -> Motif -> Motif
 weakCadence root mode motif = changelastSD root mode 4 motif
 
--- replaces the durations
 replaceDurations :: [Dur] -> Motif -> Motif
 replaceDurations durs motif = zipWith replaceDuration durs motif
 
@@ -84,6 +82,7 @@ replacePitches  pitches motif  =
   in newPrimPs ++ rest ++ replacePitches  (snd splitPs) (drop 1 second)
 
 
+-- fits a sequence to a given time signature
 fit :: Rational -> Motif -> Motif
 fit time motif =
   let missing = getMissing time motif
@@ -99,13 +98,8 @@ changeDur :: Dur -> Primitive Pitch -> Primitive Pitch
 changeDur diff (Rest dur) = Rest (dur + diff)
 changeDur diff (Note dur p) = Note (dur + diff) p
 
-getMissing :: Rational -> Motif -> Rational
-getMissing time motif =
-  let motifDur = getTotalDur motif
-      missing = time - motifDur
-  in missing
-
 data Order = RI | FA-- RISING, FALLING
+
 reorder :: Order -> Motif -> Motif
 reorder RI motif = replacePitches (map pitch $ absPSort motif) motif
 reorder FA motif =
@@ -113,7 +107,14 @@ reorder FA motif =
 
 
 absPSort motif = sort $ map absPitch $ getPitches motif
+
 -- HELPER FUNCTIONS ------------------------------------------------------------
+
+getMissing :: Rational -> Motif -> Rational
+getMissing time motif =
+  let motifDur = getTotalDur motif
+      missing = time - motifDur
+  in missing
 
 cTrans :: AbsPitch -> Motif -> Motif
 cTrans ap motif = map (cPrimTrans ap) motif
@@ -130,8 +131,8 @@ getTotalDur motif = sum $ map getDur motif
 primTrans :: Root -> Mode -> ScaleDeg -> Primitive Pitch -> Primitive Pitch
 primTrans _ _ _ (Rest dur) = Rest dur
 primTrans root mode steps (Note dur p) =
-  let transposedSD =  (toScaleDeg root mode (absPitch p)) + steps
-      transposedAP = toAbsPitch root mode transposedSD
+  let transposedSD =  (toSD root mode (absPitch p)) + steps
+      transposedAP = toAP root mode transposedSD
   in Note dur (pitch transposedAP)
 
 -- invertSD: Diatonic inversion of sequence of Scale Degrees around first note
@@ -144,17 +145,17 @@ invertSD motifSD =
 changelastSD :: Root -> Mode -> ScaleDeg -> Motif -> Motif
 changelastSD root mode deg motif =
   let pitches = getPitches motif
-      lastPitchSD = toScaleDeg root mode $ absPitch $ last pitches
+      lastPitchSD = toSD root mode $ absPitch $ last pitches
       nearestSD = (nearestMultiple 7 (lastPitchSD - deg)) + deg
-      nearestP = pitch $ toAbsPitch root mode nearestSD
+      nearestP = pitch $ toAP root mode nearestSD
   in replacePitches (init pitches ++ [nearestP]) motif
 
 movelastSD :: Root -> Mode -> ScaleDeg -> Motif -> Motif
 movelastSD root mode deg motif =
   let pitches = getPitches motif
-      lastPitchSD = toScaleDeg root mode $ absPitch $ last pitches
+      lastPitchSD = toSD root mode $ absPitch $ last pitches
       newLastPitchSD = lastPitchSD + deg
-      newLastPitchP = pitch $ toAbsPitch root mode newLastPitchSD
+      newLastPitchP = pitch $ toAP root mode newLastPitchSD
   in replacePitches (init pitches ++ [newLastPitchP]) motif
 
 
@@ -179,8 +180,8 @@ getPitches motif =
   let pitches = map getMaybePitch motif
   in map (\(Just x) -> x) $ filter (/= Nothing) $ pitches
 
-toScaleDeg root mode = (\(Just x) -> x) . Scale.absPitch2ScaleDeg root mode
-toAbsPitch root mode = (\(Just x) -> x) . Scale.scaleDeg2AbsPitch root mode
+toSD root mode = (\(Just x) -> x) . Scale.toScaleDeg root mode
+toAP root mode = (\(Just x) -> x) . Scale.toAbsPitch root mode
 
 notRest (Rest _ ) = False
 notRest (Note _ _) = True
