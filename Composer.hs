@@ -4,7 +4,6 @@ module Composer
 , inv
 , rev
 , transp
-, giveR
 , strong
 , weak
 , ro
@@ -39,11 +38,10 @@ type GT = MusicTree -> MusicTree
 toGT :: (T.Motif -> T.Motif) -> GT
 toGT f = applySF f
 
+--example gts, must be generalized:
 inv = toGT $ T.invert C Major
 rev  = toGT $ T.reverse
 transp x = toGT $ T.transpose C Major x
-givePs group = toGT $ T.givePitches (fromGroup group)
-giveR group = toGT $ T.giveRhythm (fromGroup group)
 strong = toGT $ T.strongCadence C Major
 weak = toGT $ T.weakCadence C Major
 ro = toGT . T.reorder
@@ -108,7 +106,7 @@ getDepth sTrans = maximum $ L.findIndices (isSome) $ sTrans $ replicate (666) Al
 isSome (Some xs) = True
 isSome _  = False
 
--- MUSIC PT  -------------------------------------------------------------------
+-- MUSIC PREFIX-TREE -----------------------------------------------------------
 
 type MusicPT = PrefixTree GT (Slice -> Slice)
 
@@ -179,44 +177,6 @@ toCV1 tree =
 toCV2 tree =
   let notes = T.getPitches $ flatten tree
   in toCV' [head notes] (tail notes)
-
-{-
-toCV :: MusicTree -> MusicTree
-toCV tree =
-  let notes = flatten tree
-      voice1 = [T.replaceDuration en $ head notes] :: T.Motif
-      voice2 = [Note en (C,4)] :: T.Motif
-      f = concat . replicate 4
-  in Group V [  Group H (map toVal $ f voice1)
-             ,  Group H ( map toVal $ T.fit 0.5 $ (Rest sn :: Primitive Pitch) : f voice2)
-             ]
-
-toCV2 :: MusicTree -> MusicTree
-toCV2 tree =
- let notes = (map (T.replaceDuration en) $ flatten tree)
-     voice1 = [head notes] :: T.Motif
-     stack = tail notes
-     voice2 = toGroup V $ (stack)
-     voice3 = toGroup V $ map (T.replaceDuration sn) $ stack
-     f x = concat . replicate x
- in Group V [  Group H (map toVal $ f 4 voice1)
-            ,  Group H ( (Val $ Rest sn :: MusicTree ) : f 3 [voice2] ++ [voice3])
-            ]
--}
-{-
-toCV2 :: MusicTree -> MusicTree
-toCV2 (Group V notes) =
- let n = replaceDurations [sn,sn,sn] (fromGroup V) notes
-     voice1 = [T.replaceDuration (sn) $ head notes]
-     voice2 = [Group V $ map (replaceDuration (sn)) $ tail notes]
-     f = concat . replicate 4
- in Group V [  Group H ( f voice1)
-            ,  Group H ( (Rest sn :: Primitive Pitch) : f voice2)
-            ]
--}
-tes = [Val $ Note en (C,4), Val $ Note en (C,3)]
-
-toVal = (\x -> Val x)
 
 chords :: OrientedTree (Primitive Pitch)
 chords =
