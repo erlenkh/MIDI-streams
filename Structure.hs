@@ -5,18 +5,14 @@ module Structure
 , Slice (..)
 , PrefixTree(..)
 , toGroup
-, fromGroup
 , applyGT
 , applyFunction
-, getElement
 , getElements
 , getAllPaths
 , getAllValues
 , applySF
 , flatten
 , elevate
-, depth
-, extract
 ) where
 
 import Data.List
@@ -49,9 +45,6 @@ toGroup :: Orientation -> [a] -> OrientedTree a
 toGroup H prims = Group H (map (\x -> Val x) prims)
 toGroup V prims = Group V (map (\x -> Val x) prims)
 
-fromGroup :: OrientedTree a -> [a]
-fromGroup (Group o vals) = map (\(Val x) -> x) vals
-
 flatten :: OrientedTree a -> [a]
 flatten (Val x) = [x]
 flatten (Group _ vals) = concat $ map flatten vals
@@ -76,7 +69,6 @@ enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
   ff prevGroups x = prevGroups ++ [enumerate' (num + size prevGroups) x]
   size = sum . map fst
   numTrees = map snd numGroups
-
 
 -- PATH FUNCTIONS --------------------------------------------------------------
 
@@ -114,10 +106,11 @@ addElementVert tree path element =
       newE = Group V [alreadyThere, element]
   in replaceElement tree path newE
 
-
 -- SLICE FUNCTIONS -------------------------------------------------------------
 
---at each hierarchical level: select either some Branches or All
+-- TODO: define slicing in terms of paths?
+
+--at each hierarchical level: select either some Branches or All:
 data Choice = Some [Int] | All deriving (Show, Eq)
 
 type Slice = [Choice]
