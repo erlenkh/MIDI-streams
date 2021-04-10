@@ -1,13 +1,13 @@
 module Scale
-( getScaleNotes
-, createFullMIDIScale
-, scaleDeg2AbsPitch
-, absPitch2ScaleDeg
+( scalePitches
+, fullMIDIScale
+, toAbsPitch
+, toScaleDeg
 , Root
 , ScaleDeg
 ) where
 
-  -- TODO: Fix scale.. define it so that it is just one value, not a root and a mode
+  -- TODO: Make scale datatype...
 
 import Euterpea
 import Data.List
@@ -18,37 +18,37 @@ type ScaleDeg = Int
 
 data Scale = Scale Root [Int] -- scale?
 
-getScaleNotes :: Root -> Mode -> Octave -> [Pitch]
-getScaleNotes root mode octave =
-  let modeIntervals = getModeIntervals mode
+scalePitches :: Root -> Mode -> Octave -> [Pitch]
+scalePitches root mode octave =
+  let modeIntervals = intervals mode
       rootAbs = absPitch (root, octave)
-      folding_func acc x = head acc + x : acc
-      scaleAbsPitch = reverse $ foldl folding_func [rootAbs] modeIntervals
+      ff acc x = head acc + x : acc
+      scaleAbsPitch = reverse $ foldl ff [rootAbs] modeIntervals
   in map pitch scaleAbsPitch
 
-createFullScale :: Root -> Mode -> [AbsPitch]
-createFullScale root mode =
-  let octave_scale octave = init $ getScaleNotes root mode octave
+fullScale :: Root -> Mode -> [AbsPitch]
+fullScale root mode =
+  let octave_scale octave = init $ scalePitches root mode octave
   in map absPitch $ concat $ map octave_scale [-1..9]
 
-createFullMIDIScale :: Root -> Mode -> [AbsPitch]
-createFullMIDIScale root mode =
-  [x | x <- createFullScale root mode, x >= 0, x < 128]
+fullMIDIScale :: Root -> Mode -> [AbsPitch]
+fullMIDIScale root mode =
+  [x | x <- fullScale root mode, x >= 0, x < 128]
 
 -- scale degrees are zero-indexed:
-scaleDeg2AbsPitch ::  Root -> Mode -> ScaleDeg -> Maybe AbsPitch
-scaleDeg2AbsPitch  root mode  scaleDeg =
+toAbsPitch ::  Root -> Mode -> ScaleDeg -> Maybe AbsPitch
+toAbsPitch  root mode  scaleDeg =
   if (scaleDeg >= 0 && scaleDeg < 128) then
-   Just $ (createFullMIDIScale root mode) !! scaleDeg
+   Just $ (fullMIDIScale root mode) !! scaleDeg
   else Nothing
 
   -- scale degrees are zero-indexed:
-absPitch2ScaleDeg :: Root -> Mode -> AbsPitch -> Maybe ScaleDeg
-absPitch2ScaleDeg root mode absP =
-  elemIndex absP $ createFullMIDIScale root mode
+toScaleDeg :: Root -> Mode -> AbsPitch -> Maybe ScaleDeg
+toScaleDeg root mode absP =
+  elemIndex absP $ fullMIDIScale root mode
 
-getModeIntervals :: Mode -> [AbsPitch]
-getModeIntervals mode =
+intervals :: Mode -> [AbsPitch]
+intervals mode =
   let majorIntervals = [2, 2, 1, 2, 2, 2, 1]
       -- the 7 Diatonic Modes: (Major == Ionian, Minor == Aeolian)
       modeOrder = [Major, Dorian, Phrygian, Lydian, Mixolydian, Minor, Locrian]
