@@ -27,6 +27,18 @@ instance Functor (OrientedTree) where
   fmap f (Val a) = Val (f a)
   fmap f (Group o trees) = Group o (map (fmap f) trees)
 
+instance Applicative OrientedTree where
+   pure = Val
+   Val f <*> Val x = Val (f x)
+   Val f <*> Group o xs = Group o (map (fmap f) xs)
+   (Group o fs) <*> (Val x) = Group o (map (fmap ($ x)) fs)
+   Group o fs <*> Group ox xs = Group o $ (map (<*> (Group ox xs)) fs)
+
+instance Monad OrientedTree where
+   return = Val
+   Val a >>= f = f a
+   Group o trees >>= f = Group o $ map (>>= f) trees
+
 pad :: Int -> String
 pad 0 = ""
 pad n = " " ++ pad (n-1)
@@ -220,6 +232,9 @@ testMT =     Group H [
                   ]
                 ]
               ]
+
+testOT :: OrientedTree Int
+testOT = Group H [Group V [Val 1, Val 2, Val 3], Group V [Val 4, Val 5]]
 
 xtract = extract [Some[2]] testMT
 
