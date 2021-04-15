@@ -91,7 +91,7 @@ atDepth lvl selection slice =
   in first ++ [Some selection] ++ tail second
 
 flattenSTs :: Slice -> [(Slice -> Slice)] -> Slice
-flattenSTs levels sts = foldl(\acc f -> f acc) levels sts
+flattenSTs levels sts = foldr ($) levels sts
 
 getMaxLevels :: [Slice -> Slice] -> Slice
 getMaxLevels sts = replicate ((getMaxDepth sts) + 1) All
