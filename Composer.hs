@@ -16,6 +16,7 @@ import Euterpea
 import qualified Transform as T
 import Chord
 import qualified Data.List as L
+
 -- MUSIC TREE  ------------------------------------------------------------------
 
 type MusicTree = OrientedTree (Primitive Pitch)
@@ -52,19 +53,6 @@ ct = toGT . T.cTrans
 invGT :: MusicTree -> MusicTree
 invGT = applySF $ T.invert C Major
 
--- TRANSFORMATIVE INSTRUCTIONS -------------------------------------------------
-
-data TI = TI { slc :: Slice, gt :: GT}  -- Transformative Instruction
-
-tis2MT :: [TI] -> MusicTree
-tis2MT tis = applyTIs tis (makeStartingTree tis)
-
-applyTIs :: [TI] -> MusicTree -> MusicTree
-applyTIs tis tree =
-  foldl (flip applyTI) tree tis
-
-applyTI :: TI -> MusicTree -> MusicTree
-applyTI (TI slice gt) tree = applyGT slice gt tree
 
 -- SLICE TRANSFORMATIONS -------------------------------------------------------
 
@@ -85,7 +73,8 @@ atLevel lvl selection slice =
   let (first, second) = splitAt lvl (reverse slice)
   in reverse $ first ++ [Some selection] ++ tail second
 
-atDepth :: Int -> [Int] -> (Slice -> Slice)
+-- ideally this should return a maybe but it is a lot of work just for idealism:
+atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
 atDepth lvl selection slice =
   let (first, second) = splitAt lvl slice
   in first ++ [Some selection] ++ tail second
@@ -105,23 +94,32 @@ isSome _  = False
 
 -- MUSIC PREFIX-TREE -----------------------------------------------------------
 
-type MusicPT = PrefixTree GT (Slice -> Slice)
+type MusicPT = PrefixTree (MusicTree -> MusicTree) (Slice -> Slice)
 
-toTI :: ([Slice -> Slice], GT) -> TI
-toTI (sts, gtrans) = TI {slc = foldr ($) (getMaxLevels sts) sts, gt = gtrans}
+ -- Transformative Instruction:
+data TI = TI { slc :: Slice, gt :: (MusicTree -> MusicTree)}
 
-pt2TIs :: MusicPT -> [TI]
-pt2TIs pt =
+toTIs :: MusicPT -> [TI]
+toTIs pt =
   let stss = getAllPaths pt
       maxLevels = getMaxLevels $ concat stss
       gts = getAllValues $ fmap ($ maxLevels) pt
   in map (toTI) $ zip stss gts
 
-pt2MT :: MusicPT -> MusicTree
-pt2MT pt = tis2MT $ pt2TIs pt
+toTI :: ([Slice -> Slice], GT) -> TI
+toTI (sts, gtrans) = TI {slc = foldr ($) (getMaxLevels sts) sts, gt = gtrans}
+
+applyTIs :: [TI] -> MusicTree -> MusicTree
+applyTIs tis tree = foldl (flip applyTI) tree tis
+
+applyTI :: TI -> MusicTree -> MusicTree
+applyTI (TI slice gt) tree = applyGT slice gt tree
+
+toMT :: MusicPT -> MusicTree
+toMT pt = let tis = toTIs pt in applyTIs tis (makeStartingTree tis)
 
 getSlices :: MusicPT -> [Slice]
-getSlices pt = map slc $ pt2TIs pt
+getSlices pt = map slc $ toTIs pt
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
