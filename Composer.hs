@@ -90,8 +90,8 @@ atDepth lvl selection slice =
   let (first, second) = splitAt lvl slice
   in first ++ [Some selection] ++ tail second
 
-flattenSTs :: Slice -> [(Slice -> Slice)] -> Slice
-flattenSTs levels sts = foldr ($) levels sts
+flattened :: a -> [(a -> a)] -> a
+flattened start functions = foldr ($) start functions
 
 getMaxLevels :: [Slice -> Slice] -> Slice
 getMaxLevels sts = replicate ((getMaxDepth sts) + 1) All
@@ -111,7 +111,7 @@ isSome _  = False
 type MusicPT = PrefixTree GT (Slice -> Slice)
 
 toTI :: ([Slice -> Slice], GT) -> TI
-toTI (sts, gtrans) = TI {slc = flattenSTs (getMaxLevels sts) sts, gt = gtrans}
+toTI (sts, gtrans) = TI {slc = flattened (getMaxLevels sts) sts, gt = gtrans}
 
 pt2TIs :: MusicPT -> [TI]
 pt2TIs pt =
