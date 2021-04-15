@@ -23,6 +23,7 @@ type MusicTree = OrientedTree (Primitive Pitch)
 
 -- converts from a piece of music from orientedTree to Euterpeas 'Music Pitch'
 -- enables us to play the piece as MIDI with built-in Euterpea functions
+
 treeToMusic :: MusicTree -> Music (Pitch, Volume)
 treeToMusic (Val x) = valToMusic (Val x)
 treeToMusic (Group H trees) = line (map treeToMusic trees)
@@ -79,8 +80,8 @@ atDepth lvl selection slice =
   let (first, second) = splitAt lvl slice
   in first ++ [Some selection] ++ tail second
 
-getMaxLevels :: [Slice -> Slice] -> Slice
-getMaxLevels sts = replicate ((getMaxDepth sts) + 1) All
+smallestAlls :: [Slice -> Slice] -> Slice
+smallestAlls sts = replicate ((getMaxDepth sts) + 1) All
 
 getMaxDepth :: [Slice -> Slice] -> Int
 getMaxDepth sts = maximum $ map getDepth sts
@@ -102,12 +103,12 @@ data TI = TI { slc :: Slice, gt :: (MusicTree -> MusicTree)}
 toTIs :: MusicPT -> [TI]
 toTIs pt =
   let stss = getAllPaths pt
-      maxLevels = getMaxLevels $ concat stss
-      gts = getAllValues $ fmap ($ maxLevels) pt
+      alls = smallestAlls $ concat stss
+      gts = getAllValues $ fmap ($ alls) pt
   in map (toTI) $ zip stss gts
 
 toTI :: ([Slice -> Slice], GT) -> TI
-toTI (sts, gtrans) = TI {slc = foldr ($) (getMaxLevels sts) sts, gt = gtrans}
+toTI (sts, gtrans) = TI {slc = foldr ($) (smallestAlls sts) sts, gt = gtrans}
 
 applyTIs :: [TI] -> MusicTree -> MusicTree
 applyTIs tis tree = foldl (flip applyTI) tree tis
