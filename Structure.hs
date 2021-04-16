@@ -17,6 +17,7 @@ module Structure
 
 import Data.List
 
+
 -- ORIENTED TREE ---------------------------------------------------------------
 
 data Orientation = H | V deriving (Show)  -- Horizontal | Vertical
