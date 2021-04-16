@@ -166,11 +166,15 @@ p3 = zip (evn 32) (concat $ repeat [[0], [1], [3], [2]])
 p4 = zip (fifties) (concat $ repeat [[0,1,2]])
 
 -- takes in a pattern and a musicTree, and gives out a musictree with the
--- pitches from the OG tree in the form of the pattern. 
+-- pitches from the OG tree in the form of the pattern.
+
 pattern :: Pattern -> MusicTree -> MusicTree
-pattern pat tree =
-  let pitches = T.getPitches $ flatten tree
-      v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
+pattern pat tree = pattern' pat (T.getPitches $ flatten tree)
+
+pattern' :: Pattern -> [Pitch] -> MusicTree
+pattern' pat pitches =
+  let v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
+  -- ^ function that creates a Vertical group from one pattern-element
   in Group H $ map v pat
 
 rhythm :: Rhythm -> MusicTree -> MusicTree
