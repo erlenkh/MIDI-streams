@@ -154,12 +154,16 @@ evn x = replicate x (1/fromIntegral x)
 -- example rhythms:
 n = [(qn + en), (qn + en), qn]
 fifties = [(qn +en), en, en, en, qn]
-
+mr = [(qn + en), (qn + en), qn,(qn + en), qn, (qn + en)]
 type Pattern = [(Dur, [Int])]
 -- ^ what notes should be played for each duration
 
+-- idea: first insert allowable notes (i.e chords) then enforce patterns on these.
+
+-- but: will always suck with only 1 voice / instrument. Need more voices..
+
 -- examples:
-p0, p1, p11, p2, p3, p4, pn :: Pattern
+p0, p1, p11, p2, p3, p4, p5, pn :: Pattern
 pn = zip (evn 1) (concat $ repeat [[0,1,2]])
 p0 = zip (n) (concat $ repeat [[0,1,2]])
 p1 = zip (evn 6) (concat $ repeat [[0],[1,2],[1,2]])
@@ -168,6 +172,8 @@ p2 = zip (evn 8) (concat $ repeat [[0], [2,3]])
 p3 = zip (evn 32) (concat $ repeat [[0], [1], [3], [2]])
 p4 = zip (fifties) (concat $ repeat [[0,1,2]])
 
+-- idea of a melody:
+p5 = zip mr (concat $ repeat [[0],[3],[2],[1],[0],[3],[2],[8]])
 -- takes in a pattern and a musicTree, and gives out a musictree with the
 -- pitches from the OG tree in the form of the pattern.
 
