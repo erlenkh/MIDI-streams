@@ -159,6 +159,7 @@ type Pattern = [(Dur, [Int])]
 -- ^ what notes should be played for each duration
 
 -- idea: first insert allowable notes (i.e chords) then enforce patterns on these.
+-- wow: might actually insert entire scale? 
 
 -- but: will always suck with only 1 voice / instrument. Need more voices..
 
