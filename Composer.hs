@@ -105,6 +105,8 @@ toTIs pt =
   let stss = getAllPaths pt
       alls = smallestAlls $ concat stss
       gts = getAllValues $ fmap ($ alls) pt
+-- cant lookup functions in prefix-tree, because no instance of Eq for functions
+-- so applied each slice transformation to the smallest slice of alls necessary.
   in map (toTI) $ zip stss gts
 
 toTI :: ([Slice -> Slice], GT) -> TI
@@ -122,9 +124,69 @@ toMT pt = let tis = toTIs pt in applyTIs tis (makeStartingTree tis)
 getSlices :: MusicPT -> [Slice]
 getSlices pt = map slc $ toTIs pt
 
+-- TESTING GENERATING PREFIX TREES: --------------------------------------------
+
+--mkc p o m dur = map (\p -> Note dur p) $ pitches $ getTriad (p,o) m
+mkc p o m ints dur = map (\p -> Note dur p) $ pitches $ getChord (p,o) m ints
+
+nico = [mkc C 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
+house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
+dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
+pain = [mkc C 2 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
+
+-- need sequential insertion / other way to generate prefix tree:
+pt p c = Node (atDepth 0 [0])[
+              Leaf (atDepth 2 [0]) (insert $ toGroup V $ c !! 0)
+          ,   Leaf (atDepth 2 [1]) (insert $ toGroup V $ c !! 1)
+          ,   Node (atDepth 2 [0,1])[
+                Leaf (atDepth 1 [0,1]) ( pattern p)
+              ]
+         ]
+
+type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
+--    ^ a rhythm, a series of durations that are looped.
+
+evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
+evn x = replicate x (1/fromIntegral x)
+
+-- example rhythms:
+n = [(qn + en), (qn + en), qn]
+fifties = [(qn +en), en, hn]
+
+type Pattern = [(Dur, [Int])]
+-- ^ what notes should be played for each duration
+
+-- examples:
+p0, p1, p11, p2, p3, p4 :: Pattern
+p0 = zip (n) (concat $ repeat [[0,1,2]])
+p1 = zip (evn 6) (concat $ repeat [[0],[1,2],[1,2]])
+p11 = zip (evn 6) (concat $ repeat [[0],[1,2,3],[1,2,3]])
+p2 = zip (evn 8) (concat $ repeat [[0], [2,3]])
+p3 = zip (evn 32) (concat $ repeat [[0], [1], [3], [2]])
+p4 = zip (fifties) (concat $ repeat [[0,1,2]])
+
+-- takes in a pattern and a musicTree, and gives out a musictree with the
+-- pitches from the OG tree in the form of the pattern. 
+pattern :: Pattern -> MusicTree -> MusicTree
+pattern pat tree =
+  let pitches = T.getPitches $ flatten tree
+      v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
+  in Group H $ map v pat
+
+rhythm :: Rhythm -> MusicTree -> MusicTree
+rhythm rm tree =
+  let newtree = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm newtree
+
+hDurs :: MusicTree -> Rhythm
+hDurs tree = fmap T.getDur $ flatten tree
+
+giveDuration :: Dur -> Primitive Pitch -> Primitive Pitch
+giveDuration dur (Note d p) = Note dur p
+
 -- TESTING ZONE: ---------------------------------------------------------------
 
-p tree = playDevS 6 $ tempo 0.80 $ (treeToMusic tree) --quick play
+p tm tree = playDevS 6 $ tempo tm $ (treeToMusic tree) --quick play
 
 mkChord pitch mode dur = map (\p -> Note dur p) $ pitches $ getTriad pitch mode
 
