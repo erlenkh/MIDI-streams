@@ -133,14 +133,16 @@ nico = [mkc C 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
 house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
 dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
 pain = [mkc C 2 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
+spanish = [mkc E 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
 
 -- need sequential insertion / other way to generate prefix tree:
-pt p c = Node (atDepth 0 [0])[
+pt pat1 pat2 c = Node (atDepth 0 [0,1])[
               Leaf (atDepth 2 [0]) (insert $ toGroup V $ c !! 0)
           ,   Leaf (atDepth 2 [1]) (insert $ toGroup V $ c !! 1)
           ,   Node (atDepth 2 [0,1])[
-                Leaf (atDepth 1 [0,1]) ( pattern p)
+                Leaf (atDepth 1 [0,1]) ( pattern pat1)
               ]
+          ,   Leaf ((atDepth 2 [1]) . (atDepth 1 [1])) (pattern pat2)
          ]
 
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
@@ -151,13 +153,14 @@ evn x = replicate x (1/fromIntegral x)
 
 -- example rhythms:
 n = [(qn + en), (qn + en), qn]
-fifties = [(qn +en), en, hn]
+fifties = [(qn +en), en, en, en, qn]
 
 type Pattern = [(Dur, [Int])]
 -- ^ what notes should be played for each duration
 
 -- examples:
-p0, p1, p11, p2, p3, p4 :: Pattern
+p0, p1, p11, p2, p3, p4, pn :: Pattern
+pn = zip (evn 1) (concat $ repeat [[0,1,2]])
 p0 = zip (n) (concat $ repeat [[0,1,2]])
 p1 = zip (evn 6) (concat $ repeat [[0],[1,2],[1,2]])
 p11 = zip (evn 6) (concat $ repeat [[0],[1,2,3],[1,2,3]])
