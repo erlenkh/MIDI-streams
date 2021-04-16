@@ -1,6 +1,7 @@
 module Chord(
   Chord(..)
 , getTriad
+, getChord
 ) where
 
 import Euterpea

@@ -13,6 +13,7 @@ module Transform(
 , Transform.replaceDuration
 , Transform.movelastSD
 , Transform.cTrans
+, getDur
 , reorder
 , Order (..)
 , fit
@@ -159,7 +160,6 @@ movelastSD root mode deg motif =
       newLastPitchSD = lastPitchSD + deg
       newLastPitchP = pitch $ toAP root mode newLastPitchSD
   in replacePitches (init pitches ++ [newLastPitchP]) motif
-
 
 replaceDuration :: Dur -> Primitive Pitch -> Primitive Pitch
 replaceDuration newDur (Rest dur) = Rest newDur
