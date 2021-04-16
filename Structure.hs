@@ -198,9 +198,9 @@ getAllPaths (Node k trees) =
 getAllValues :: (Eq k) => PrefixTree v k -> [v]
 getAllValues tree =
   let keys = getAllPaths tree
-      maybeValues = map (lookupPT tree) keys
-      values = map (\(Just x) -> x) maybeValues
-  in values
+  in  map (\(Just x) -> x) $ map (lookupPT tree) keys
+  --  ^ should never be Nothing, since it only looks up paths from getallPaths
+
 
 depth :: PrefixTree v k -> Int
 depth (Leaf k v) = 1
