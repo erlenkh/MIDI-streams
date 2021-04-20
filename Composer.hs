@@ -74,6 +74,7 @@ atLevel lvl selection slice =
   let (first, second) = splitAt lvl (reverse slice)
   in reverse $ first ++ [Some selection] ++ tail second
 
+-- selection should be a slice!
 -- ideally this should return a maybe but it is a lot of work just for idealism:
 atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
 atDepth lvl selection slice =
@@ -134,15 +135,16 @@ house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
 dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
 pain = [mkc C 2 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
 spanish = [mkc E 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
+eurodance = [mkc A 3 Minor [2,4,6] wn, mkc F 3 Major [2,4,6] wn,
+ mkc C 4 Major [2,4,6] wn, mkc G 3 Major [2,4,5] wn]
 
 -- need sequential insertion / other way to generate prefix tree:
-pt pat1 pat2 c = Node (atDepth 0 [0,1])[
-              Leaf (atDepth 2 [0]) (insert $ toGroup V $ c !! 0)
-          ,   Leaf (atDepth 2 [1]) (insert $ toGroup V $ c !! 1)
-          ,   Node (atDepth 2 [0,1])[
+pt pat1 pat2 c = Node (atDepth 0 [0])[
+              Leaf (atDepth 1 [0,1]) (insert $ structured c)
+          ,   Node (atDepth 2 [0,1,2,3])[
                 Leaf (atDepth 1 [0,1]) ( pattern pat1)
               ]
-          ,   Leaf ((atDepth 2 [1]) . (atDepth 1 [1])) (pattern pat2)
+          ,   Leaf ((atDepth 2 [2,3]) . (atDepth 1 [1])) (pattern pat2)
          ]
 
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
@@ -150,6 +152,9 @@ type Rhythm = [Dur] -- problem: how do we differentiate between a note and a res
 
 evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
 evn x = replicate x (1/fromIntegral x)
+
+structured :: [[Primitive Pitch]] -> MusicTree
+structured chords = Group H $ map (toGroup V) chords
 
 -- example rhythms:
 n = [(qn + en), (qn + en), qn]
@@ -159,17 +164,18 @@ type Pattern = [(Dur, [Int])]
 -- ^ what notes should be played for each duration
 
 -- idea: first insert allowable notes (i.e chords) then enforce patterns on these.
--- wow: might actually insert entire scale? 
+-- wow: might actually insert entire scale?
 
 -- but: will always suck with only 1 voice / instrument. Need more voices..
 
 -- examples:
-p0, p1, p11, p2, p3, p4, p5, pn :: Pattern
+p0, p1, p11, p2, p22, p3, p4, p5, pn :: Pattern
 pn = zip (evn 1) (concat $ repeat [[0,1,2]])
 p0 = zip (n) (concat $ repeat [[0,1,2]])
 p1 = zip (evn 6) (concat $ repeat [[0],[1,2],[1,2]])
 p11 = zip (evn 6) (concat $ repeat [[0],[1,2,3],[1,2,3]])
 p2 = zip (evn 8) (concat $ repeat [[0], [2,3]])
+p22 = zip (evn 16) (concat $ repeat [[0], [2], [0], [1,2]])
 p3 = zip (evn 32) (concat $ repeat [[0], [1], [3], [2]])
 p4 = zip (fifties) (concat $ repeat [[0,1,2]])
 
