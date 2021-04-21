@@ -111,7 +111,11 @@ toTIs pt =
   in map (toTI) $ zip stss gts
 
 toTI :: ([Slice -> Slice], GT) -> TI
-toTI (sts, gtrans) = TI {slc = foldr ($) (smallestAlls sts) sts, gt = gtrans}
+--toTI (sts, gtrans) = TI {slc = foldr ($) (smallestAlls sts) sts, gt = gtrans}
+-- right to left: ^ higher nodes  overwrite lower nodes
+toTI (sts, gtrans) =
+   TI {slc = foldl (\slc f -> f slc) (smallestAlls sts) sts, gt = gtrans}
+-- left to right: ^ lower nodes can overwrite higher nodes
 
 applyTIs :: [TI] -> MusicTree -> MusicTree
 applyTIs tis tree = foldl (flip applyTI) tree tis
@@ -138,14 +142,42 @@ spanish = [mkc E 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
 eurodance = [mkc A 3 Minor [2,4,6] wn, mkc F 3 Major [2,4,6] wn,
  mkc C 4 Major [2,4,6] wn, mkc G 3 Major [2,4,5] wn]
 
+scl =  replicate 2 $ map (\p -> Note hn p) (scalePitches A Minor 4)
+
+
 -- need sequential insertion / other way to generate prefix tree:
-pt pat1 pat2 c = Node (atDepth 0 [0])[
-              Leaf (atDepth 1 [0,1]) (insert $ structured c)
-          ,   Node (atDepth 2 [0,1,2,3])[
-                Leaf (atDepth 1 [0,1]) ( pattern pat1)
+pt pat1 pat2 c = Node (atDepth 0 [0,1])[
+              Node (atDepth 1 [0,1]) [
+                  Leaf (atDepth 1 [0,1]) (insert $ structured V c)
+              ,   Leaf (atDepth 2 [0..(length c) - 1]) (rpattern pat1)
               ]
-          ,   Leaf ((atDepth 2 [2,3]) . (atDepth 1 [1])) (pattern pat2)
+          ,   Leaf ((atDepth 1 [0,1]) . (atDepth 2 [(length c) - 1])) (rpattern pat2)
+          ,   Leaf ((atDepth 1 [0,1])) (transp (-7))
+          ,   Leaf ((atDepth 0 [1]) . atDepth 1 [1] . atDepth 2 [1]) (inv)
          ]
+
+smallPiece = toMT $ pt (rp ronettes waltz) (rp ronettes rising) house
+
+-- a small piece..
+
+bass pat1 m = Node (atDepth 0 [0,1])[
+               Node (atDepth 1 [0,1]) [
+                   Leaf (atDepth 1 [0,1]) (insert $ structured H m)
+               ,   Leaf (atDepth 2 [0..(length m) - 1]) (transp (-7) . rpattern pat1)
+               ]
+            ]
+
+pt2 pat m = Node (atDepth 0 [0,1])[
+               Node (atDepth 1 [0,1]) [
+                   Leaf (atDepth 1 [0,1]) (insert $ structured H m)
+               ,   Leaf (atDepth 2 [0..(length m) - 1]) (transp (-7) . rpattern pat)
+               ]
+           ]
+
+
+structured :: Orientation -> [[Primitive Pitch]] -> MusicTree
+structured o chords = Group H $ map (toGroup o) chords
+
 
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
 --    ^ a rhythm, a series of durations that are looped.
@@ -153,42 +185,35 @@ type Rhythm = [Dur] -- problem: how do we differentiate between a note and a res
 evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
 evn x = replicate x (1/fromIntegral x)
 
-structured :: [[Primitive Pitch]] -> MusicTree
-structured chords = Group H $ map (toGroup V) chords
-
--- example rhythms:
+-- basic rhythms:
 n = [(qn + en), (qn + en), qn]
-fifties = [(qn +en), en, en, en, qn]
+ronettes = [(qn + en), en, hn]
+f = [(qn +en), en, en, en, qn]
 mr = [(qn + en), (qn + en), qn,(qn + en), qn, (qn + en)]
-type Pattern = [(Dur, [Int])]
--- ^ what notes should be played for each duration
 
--- idea: first insert allowable notes (i.e chords) then enforce patterns on these.
--- wow: might actually insert entire scale?
+type Pattern = [[Int]]
+-- ^ a pattern of scale degrees/ chord degrees. Represents a H group og V groups
 
--- but: will always suck with only 1 voice / instrument. Need more voices..
+-- basic patterns:
+full, falling, waltz, rising :: Pattern
+full = [[0,1,2]]
+falling = [[2], [1], [0]]
+waltz = [[0], [1,2], [1,2]]
+rising = reverse falling
 
--- examples:
-p0, p1, p11, p2, p22, p3, p4, p5, pn :: Pattern
-pn = zip (evn 1) (concat $ repeat [[0,1,2]])
-p0 = zip (n) (concat $ repeat [[0,1,2]])
-p1 = zip (evn 6) (concat $ repeat [[0],[1,2],[1,2]])
-p11 = zip (evn 6) (concat $ repeat [[0],[1,2,3],[1,2,3]])
-p2 = zip (evn 8) (concat $ repeat [[0], [2,3]])
-p22 = zip (evn 16) (concat $ repeat [[0], [2], [0], [1,2]])
-p3 = zip (evn 32) (concat $ repeat [[0], [1], [3], [2]])
-p4 = zip (fifties) (concat $ repeat [[0,1,2]])
+type RPattern = [(Dur, [Int])]
+-- ^ Rhythmic pattern: what notes should be played for each duration.
 
--- idea of a melody:
-p5 = zip mr (concat $ repeat [[0],[3],[2],[1],[0],[3],[2],[8]])
+rp :: Rhythm -> Pattern -> RPattern
+rp r p = zip r (concat $ repeat p)
+
 -- takes in a pattern and a musicTree, and gives out a musictree with the
--- pitches from the OG tree in the form of the pattern.
+-- pitches from the OG tree in the form of the pattern:
+rpattern :: RPattern -> MusicTree -> MusicTree
+rpattern pat tree = rpattern' pat (T.getPitches $ flatten tree)
 
-pattern :: Pattern -> MusicTree -> MusicTree
-pattern pat tree = pattern' pat (T.getPitches $ flatten tree)
-
-pattern' :: Pattern -> [Pitch] -> MusicTree
-pattern' pat pitches =
+rpattern' :: RPattern -> [Pitch] -> MusicTree
+rpattern' pat pitches =
   let v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
   -- ^ function that creates a Vertical group from one pattern-element
   in Group H $ map v pat
@@ -206,7 +231,9 @@ giveDuration dur (Note d p) = Note dur p
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
-p tm tree = playDevS 6 $ tempo tm $ (treeToMusic tree) --quick play
+play2 t1 t2 = playDevS 6 $ treeToMusic t1 :=: treeToMusic t2
+
+p tm tree = playDev 6 $ tempo tm $ (treeToMusic tree) --quick play
 
 mkChord pitch mode dur = map (\p -> Note dur p) $ pitches $ getTriad pitch mode
 
