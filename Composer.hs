@@ -16,6 +16,7 @@ import Euterpea
 import qualified Transform as T
 import Chord
 import qualified Data.List as L
+import qualified Data.Set as S
 
 -- MUSIC TREE  ------------------------------------------------------------------
 
@@ -54,7 +55,6 @@ ct = toGT . T.cTrans
 invGT :: MusicTree -> MusicTree
 invGT = applySF $ T.invert C Major
 
-
 -- SLICE TRANSFORMATIONS -------------------------------------------------------
 
 -- slice transformations: construction of slices by composition STs
@@ -67,6 +67,7 @@ type ST = (Slice -> Slice)
 atPeriods  = atDepth 0
 atPhrases = atDepth 1
 atMeasures = atDepth 2
+atChords = atDepth 3
 
 --crashes if lvl >= length slice (might fix with Maybe)
 atLevel :: Int -> [Int] -> (Slice -> Slice)
@@ -111,8 +112,6 @@ toTIs pt =
   in map (toTI) $ zip stss gts
 
 toTI :: ([Slice -> Slice], GT) -> TI
---toTI (sts, gtrans) = TI {slc = foldr ($) (smallestAlls sts) sts, gt = gtrans}
--- right to left: ^ higher nodes  overwrite lower nodes
 toTI (sts, gtrans) =
    TI {slc = foldl (\slc f -> f slc) (smallestAlls sts) sts, gt = gtrans}
 -- left to right: ^ lower nodes can overwrite higher nodes
@@ -123,6 +122,9 @@ applyTIs tis tree = foldl (flip applyTI) tree tis
 applyTI :: TI -> MusicTree -> MusicTree
 applyTI (TI slice gt) tree = applyGT slice gt tree
 
+applyPT :: MusicPT -> MusicTree -> MusicTree
+applyPT pt tree = applyTIs (toTIs pt) tree
+
 toMT :: MusicPT -> MusicTree
 toMT pt = let tis = toTIs pt in applyTIs tis (makeStartingTree tis)
 
@@ -131,53 +133,39 @@ getSlices pt = map slc $ toTIs pt
 
 -- TESTING GENERATING PREFIX TREES: --------------------------------------------
 
---mkc p o m dur = map (\p -> Note dur p) $ pitches $ getTriad (p,o) m
 mkc p o m ints dur = map (\p -> Note dur p) $ pitches $ getChord (p,o) m ints
 
 nico = [mkc C 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
 house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
 dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
-pain = [mkc C 2 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
-spanish = [mkc E 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
-eurodance = [mkc A 3 Minor [2,4,6] wn, mkc F 3 Major [2,4,6] wn,
- mkc C 4 Major [2,4,6] wn, mkc G 3 Major [2,4,5] wn]
 
-scl =  replicate 2 $ map (\p -> Note hn p) (scalePitches A Minor 4)
-
-
--- need sequential insertion / other way to generate prefix tree:
-pt pat1 pat2 c = Node (atDepth 0 [0,1])[
-              Node (atDepth 1 [0,1]) [
-                  Leaf (atDepth 1 [0,1]) (insert $ structured V c)
-              ,   Leaf (atDepth 2 [0..(length c) - 1]) (rpattern pat1)
-              ]
-          ,   Leaf ((atDepth 1 [0,1]) . (atDepth 2 [(length c) - 1])) (rpattern pat2)
-          ,   Leaf ((atDepth 1 [0,1])) (transp (-7))
-          ,   Leaf ((atDepth 0 [1]) . atDepth 1 [1] . atDepth 2 [1]) (inv)
-         ]
-
-smallPiece = toMT $ pt (rp ronettes waltz) (rp ronettes rising) house
-
--- a small piece..
-
-bass pat1 m = Node (atDepth 0 [0,1])[
-               Node (atDepth 1 [0,1]) [
-                   Leaf (atDepth 1 [0,1]) (insert $ structured H m)
-               ,   Leaf (atDepth 2 [0..(length m) - 1]) (transp (-7) . rpattern pat1)
-               ]
+insertions = Node (atPhrases [0..3]) [
+              Leaf (atPeriods [0])(insert $ structured V house)
+            , Leaf (atPeriods [1])(insert $ structured V nico)
             ]
 
-pt2 pat m = Node (atDepth 0 [0,1])[
-               Node (atDepth 1 [0,1]) [
-                   Leaf (atDepth 1 [0,1]) (insert $ structured H m)
-               ,   Leaf (atDepth 2 [0..(length m) - 1]) (transp (-7) . rpattern pat)
-               ]
-           ]
+inserted = toMT insertions
 
+patterns tree = Node (atPhrases [0..3]) [
+                        Leaf (atMeasures [0]) (rhythm (n))
+                     ,  Leaf (atMeasures [1]) (rhythm (evn 32))
+            --        ,  Leaf (atDepth 2 [0,1]) (transp 7)
+                  ]
+
+patterned = applyPT (patterns inserted) inserted
+
+sections = Node (atMeasures [0,1]) [
+              Node (atPhrases [0,1]) [
+                Leaf (atPeriods[0]) (pattern falling)
+              , Leaf (atPeriods[1]) (pattern rising)
+              ]
+          ,  Leaf (atPeriods [0,1] . atPhrases [2,3]) (pattern full)
+            ]
+
+sectioned = applyPT (sections) patterned
 
 structured :: Orientation -> [[Primitive Pitch]] -> MusicTree
 structured o chords = Group H $ map (toGroup o) chords
-
 
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
 --    ^ a rhythm, a series of durations that are looped.
@@ -188,7 +176,7 @@ evn x = replicate x (1/fromIntegral x)
 -- basic rhythms:
 n = [(qn + en), (qn + en), qn]
 ronettes = [(qn + en), en, hn]
-f = [(qn +en), en, en, en, qn]
+ffff = [(qn +en), en, en, en, qn]
 mr = [(qn + en), (qn + en), qn,(qn + en), qn, (qn + en)]
 
 type Pattern = [[Int]]
@@ -220,8 +208,22 @@ rpattern' pat pitches =
 
 rhythm :: Rhythm -> MusicTree -> MusicTree
 rhythm rm tree =
-  let newtree = (replicate (length rm) tree)
-  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm newtree
+  let trees = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
+
+-- takes a group H of group V and returns a group H of Group Vs
+
+pattern :: Pattern -> MusicTree -> MusicTree
+pattern p (Group o chords) =
+  Group H $ zipWith (extract) (concat $ repeat p) chords
+
+extract :: [Int] -> MusicTree -> MusicTree
+extract xs (Group o ns) =
+  let sel = L.sort xs
+  in if length ns > maximum sel then Group V $ map (ns !!) sel
+     else extract (unique $ init sel ++ [length ns - 1]) (Group o ns)
+
+unique = S.toList . S.fromList
 
 hDurs :: MusicTree -> Rhythm
 hDurs tree = fmap T.getDur $ flatten tree
@@ -233,109 +235,8 @@ giveDuration dur (Note d p) = Note dur p
 
 play2 t1 t2 = playDevS 6 $ treeToMusic t1 :=: treeToMusic t2
 
-p tm tree = playDev 6 $ tempo tm $ (treeToMusic tree) --quick play
+p tm tree = playDevS 6 $ tempo tm $ (treeToMusic tree) --quick play
 
-mkChord pitch mode dur = map (\p -> Note dur p) $ pitches $ getTriad pitch mode
-
-mc p o m = insert $ toGroup V $ mkChord (p,o) m hn
-
-cv      = Node (atPeriods [0,1,2,3,4,5,6,7]) [
-              Node (atPeriods [0,1,2,6,7]) [
-                Node (atMeasures [0,1]) [
-                    Leaf (atPhrases [0]) (mc C 3 Major)
-                ,   Leaf (atPhrases [1]) (mc A 2 Minor)
-                ,   Leaf (atPhrases [2]) (mc F 2 Major)
-                ,   Node (atPhrases [3]) [
-                        Leaf (atMeasures [0]) (mc D 3 Minor)
-                    ,   Leaf (atMeasures [1]) (mc G 2 Major)
-                    ]
-                ]
-                , Leaf (atMeasures [0,1]) (toCV1)
-                , Leaf (atPhrases [0,1] . atMeasures [1] . atDepth 3 [0]) (mlSD (-1))
-                , Leaf (atPeriods [2,7] . atPhrases [3] . atMeasures [1] . atDepth 3 [1]) (transp (-1))
-            ]
-            , Node (atPeriods [3,4,5,8,9,10]) [
-                Node (atMeasures [0,1]) [
-                    Leaf (atPhrases [0]) (mc F 2 Major)
-                ,   Leaf (atPhrases [2]) (mc A 2 Minor)
-                ,   Leaf (atPhrases [3]) (mc A 2 Major)
-                ,   Node (atPhrases [1]) [
-                        Leaf (atMeasures [0]) (insert $ toGroup V [Note hn (E,2), Note hn (A,2), Note hn ((B,2))])
-                    ,   Leaf (atMeasures [1]) (mc E 2 Major)
-                    ]
-                ]
-              , Leaf (atMeasures [0,1]) (toCV2)
-              ]
-          ]
-
-toCV' :: [Pitch] -> [Pitch] -> MusicTree
-toCV' n1 n2 =
-  let f = L.intersperse (Val $ Rest sn) . concat . replicate 4
-      g1 = Group H $ f [toGroup V $ map (\p -> Note sn p) n1] ++ [Val $ Rest sn]
-      g2 = Group H $ (Val $ Rest sn) : f [toGroup V $ map (\p -> Note sn p) n2]
-  in Group V [g1, g2]
-
-toCV1 tree =
-  let notes = T.getPitches $ flatten tree
-  in toCV' [head notes] [(C,4)]
-
-toCV2 tree =
-  let notes = T.getPitches $ flatten tree
-  in toCV' [head notes] (tail notes)
-
-chords :: OrientedTree (Primitive Pitch)
-chords =
-              Group H [
-                Group V [
-                  Val (Note hn (C,4)),
-                  Val (Note hn (E,4)),
-                  Val (Note hn (G,4))
-                  ],
-                Group V [
-                  Val (Note hn (C,4)),
-                  Val (Note hn (E,4)),
-                  Val (Note hn (G,4))
-                  ],
-                Group V [
-                  Val (Note hn (D,4)),
-                  Val (Note hn (G,4)),
-                  Val (Note hn (B,4))
-                  ],
-                Group V [
-                  Val (Note hn (D,4)),
-                  Val (Note hn (G,4)),
-                  Val (Note hn (B,4))
-                  ]
-                ]
-
-
-melody :: MusicTree
-melody = Group H [
-              Group H [
-                  Group H [
-                    Val (Note hn (C,4)),
-                    Val (Note hn (E,4)),
-                    Val (Note hn (G,4))
-                    ],
-                  Group H [
-                    Val (Note hn (C,4)),
-                    Val (Note hn (E,4)),
-                    Val (Note hn (G,4))
-                    ]
-              ]
-          ,   Group H [
-                    Group H [
-                      Val (Note hn (C,4)),
-                      Val (Note hn (E,4)),
-                      Val (Note hn (G,4))
-                      ],
-                    Group H [
-                      Val (Note hn (D,4)),
-                      Val (Note hn (E,4)),
-                      Val (Note hn (G,4))
-                      ]
-                ]
-          ]
 
 -- MODIFIED YAN HAN: -----------------------------------------------------------
 
