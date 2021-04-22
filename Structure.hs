@@ -13,6 +13,7 @@ module Structure
 , applySF
 , flatten
 , elevate
+, depth
 ) where
 
 import Data.List
@@ -82,6 +83,10 @@ enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
   ff prevGroups x = prevGroups ++ [enumerate' (num + size prevGroups) x]
   size = sum . map fst
   numTrees = map snd numGroups
+
+depth :: OrientedTree a -> Int
+depth (Val a) = 1
+depth (Group o trees) = 1 + maximum (map depth trees)
 
 -- PATH FUNCTIONS --------------------------------------------------------------
 
@@ -202,9 +207,9 @@ getAllValues tree =
   --  ^ should never be Nothing, since it only looks up paths from getallPaths
 
 
-depth :: PrefixTree v k -> Int
-depth (Leaf k v) = 1
-depth (Node k trees) = 1 + maximum (map depth trees)
+depthPT :: PrefixTree v k -> Int
+depthPT (Leaf k v) = 1
+depthPT (Node k trees) = 1 + maximum (map depthPT trees)
 
 -- TESTING ---------------------------------------------------------------------
 
