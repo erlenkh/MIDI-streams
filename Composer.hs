@@ -7,6 +7,18 @@ module Composer
 , strong
 , weak
 , ro
+, atPhrases
+, atMeasures
+, atPeriods
+, evn
+, insert
+, rhythm
+, pattern
+, Pattern(..)
+, Rhythm(..)
+, toMT
+, applyPT
+, atDepth'
 )
 where
 
@@ -69,6 +81,8 @@ atPhrases = atDepth 1
 atMeasures = atDepth 2
 atChords = atDepth 3
 
+
+
 --crashes if lvl >= length slice (might fix with Maybe)
 atLevel :: Int -> [Int] -> (Slice -> Slice)
 atLevel lvl selection slice =
@@ -81,6 +95,12 @@ atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
 atDepth lvl selection slice =
   let (first, second) = splitAt lvl slice
   in first ++ [Some selection] ++ tail second
+
+atDepth' :: Int -> Choice -> (Slice -> Slice) -- is used by partial application
+atDepth' lvl choice slice =
+  let (first, second) = splitAt lvl slice
+  in first ++ [choice] ++ tail second
+
 
 smallestAlls :: [Slice -> Slice] -> Slice
 smallestAlls sts = replicate ((getMaxDepth sts) + 1) All
@@ -131,41 +151,9 @@ toMT pt = let tis = toTIs pt in applyTIs tis (makeStartingTree tis)
 getSlices :: MusicPT -> [Slice]
 getSlices pt = map slc $ toTIs pt
 
--- TESTING GENERATING PREFIX TREES: --------------------------------------------
+-- RHYTHMS AND PATTERNS --------------------------------------------------------
 
-mkc p o m ints dur = map (\p -> Note dur p) $ pitches $ getChord (p,o) m ints
 
-nico = [mkc C 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
-house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
-dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
-
-insertions = Node (atPhrases [0..3]) [
-              Leaf (atPeriods [0])(insert $ structured V house)
-            , Leaf (atPeriods [1])(insert $ structured V nico)
-            ]
-
-inserted = toMT insertions
-
-patterns tree = Node (atPhrases [0..3]) [
-                        Leaf (atMeasures [0]) (rhythm (n))
-                     ,  Leaf (atMeasures [1]) (rhythm (evn 32))
-            --        ,  Leaf (atDepth 2 [0,1]) (transp 7)
-                  ]
-
-patterned = applyPT (patterns inserted) inserted
-
-sections = Node (atMeasures [0,1]) [
-              Node (atPhrases [0,1]) [
-                Leaf (atPeriods[0]) (pattern falling)
-              , Leaf (atPeriods[1]) (pattern rising)
-              ]
-          ,  Leaf (atPeriods [0,1] . atPhrases [2,3]) (pattern full)
-            ]
-
-sectioned = applyPT (sections) patterned
-
-structured :: Orientation -> [[Primitive Pitch]] -> MusicTree
-structured o chords = Group H $ map (toGroup o) chords
 
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
 --    ^ a rhythm, a series of durations that are looped.
@@ -173,21 +161,29 @@ type Rhythm = [Dur] -- problem: how do we differentiate between a note and a res
 evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
 evn x = replicate x (1/fromIntegral x)
 
--- basic rhythms:
-n = [(qn + en), (qn + en), qn]
-ronettes = [(qn + en), en, hn]
-ffff = [(qn +en), en, en, en, qn]
-mr = [(qn + en), (qn + en), qn,(qn + en), qn, (qn + en)]
+rhythm :: Rhythm -> MusicTree -> MusicTree
+rhythm rm tree =
+  let trees = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
+
+giveDuration :: Dur -> Primitive Pitch -> Primitive Pitch
+giveDuration dur (Note d p) = Note dur p
 
 type Pattern = [[Int]]
 -- ^ a pattern of scale degrees/ chord degrees. Represents a H group og V groups
 
--- basic patterns:
-full, falling, waltz, rising :: Pattern
-full = [[0,1,2]]
-falling = [[2], [1], [0]]
-waltz = [[0], [1,2], [1,2]]
-rising = reverse falling
+-- takes a group H of group V and returns a group H of Group Vs:
+pattern :: Pattern -> MusicTree -> MusicTree
+pattern p (Group o chords) =
+  Group H $ zipWith (extract) (concat $ repeat p) chords
+
+extract :: [Int] -> MusicTree -> MusicTree
+extract xs (Group o ns) =
+  let sel = L.sort xs
+  in if length ns > maximum sel then Group V $ map (ns !!) sel
+     else extract (unique $ init sel ++ [length ns - 1]) (Group o ns)
+
+unique = S.toList . S.fromList
 
 type RPattern = [(Dur, [Int])]
 -- ^ Rhythmic pattern: what notes should be played for each duration.
@@ -206,30 +202,12 @@ rpattern' pat pitches =
   -- ^ function that creates a Vertical group from one pattern-element
   in Group H $ map v pat
 
-rhythm :: Rhythm -> MusicTree -> MusicTree
-rhythm rm tree =
-  let trees = (replicate (length rm) tree)
-  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
-
--- takes a group H of group V and returns a group H of Group Vs
-
-pattern :: Pattern -> MusicTree -> MusicTree
-pattern p (Group o chords) =
-  Group H $ zipWith (extract) (concat $ repeat p) chords
-
-extract :: [Int] -> MusicTree -> MusicTree
-extract xs (Group o ns) =
-  let sel = L.sort xs
-  in if length ns > maximum sel then Group V $ map (ns !!) sel
-     else extract (unique $ init sel ++ [length ns - 1]) (Group o ns)
-
-unique = S.toList . S.fromList
-
 hDurs :: MusicTree -> Rhythm
 hDurs tree = fmap T.getDur $ flatten tree
 
-giveDuration :: Dur -> Primitive Pitch -> Primitive Pitch
-giveDuration dur (Note d p) = Note dur p
+-- TESTING GENERATING PREFIX TREES: --------------------------------------------
+
+
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
