@@ -3,60 +3,82 @@ import Composer
 import Structure
 import Transform
 import Euterpea
-
--- just some tests for now.
+import Chord
+import qualified Data.List as L
+import Control.Monad.State
 
 main = do
   gen <- newStdGen
-  let newgen = snd $ m gen
-  let tranz = applyGT [Some[1,3]] (ro FA) . applyGT [Some[0,2]] (ro RI) . applyGT [All] (toGroup H . flatten)
-  print (tranz chords)
-  playDev 2 $ forever $ (treeToMusic $ (tranz) chords)
+  let (cps,gen2) = runState (getRandoms 1 chordProgressions) gen
+  let (rs, gen3) = runState (getRandoms 2 rhythms) gen2
+  let (ps, gen4) = runState (getRandoms 2 patterns) gen3
 
---t = getRandom transformations
-m = getRandom motifs
+  let inserted = toMT $ insertionsPT cps
+  let rhythmed = applyPT (rhythmsPT rs) inserted
+  let patterned = applyPT (patternsPT ps) rhythmed
 
-motif4 = Transform.transpose C Major (- 7) $ fit 1 motif
-motif = [Note qn (C,4), Rest en, Note en (C,4), Note qn (A,3)]
-motif2 = [Note qn (C,4), Note qn (C,4), Note qn (B,4), Note qn (E,4)]
-motif3 = [Note sn (A,4), Note sn (A,4), Note qn (B,4), Note qn (C,4)]
+  playDev 6 $ treeToMusic patterned
 
-motifs = [motif, motif2, motif3]
+chordProgressions = [dreams]
+rhythms = [n, ronettes, ffff, evn 4, evn 8, evn 16]
+patterns = [full, sad, falling, waltz, rising, sadwaltz]
 
-m1, m2, m3, m4:: MusicTree
-m1 = toGroup H [Note hn (C,3), Note qn (E,3), Note qn (F,3)]
-m2 = toGroup H [Note qn (C,2), Note hn (D,2), Note qn (E,2)]
-m3 = toGroup H [Note hn (C,4), Note qn (D,4), Note qn (B,4)]
-m4 = toGroup H [Note wn (C,4), Note wn (D,4), Note wn (B,4)]
-base m = (Group H $ map (toGroup H) $  replicate 4 m) :: MusicTree
+-- prefix trees: ---------------------------------------------------------------
 
+structured :: Orientation -> [[Primitive Pitch]] -> MusicTree
+structured o chords = Group H $ map (toGroup o) chords
 
-transformations = [inv, rev, transp (-1), transp 1, transp 3, transp(-2)]
+insertionsPT cs = Node (atPhrases [0..3]) [
+              Leaf (atPeriods [0,1]) (insert $ structured V (head cs))
+            ]
+
+rhythmsPT rs  = Node (atPeriods [0]) [
+                        Leaf (atMeasures [0,1]) (rhythm (rs !! 0))
+                  , Leaf (atPeriods [1] . atMeasures [0,1]) (rhythm (rs !! 1))
+                  ]
+
+patternsPT ps = Node (atMeasures [0,1]) [
+                  Node (atPhrases [0,1]) [
+                    Leaf (atPeriods[0,1]) (pattern (ps !! 0))
+                 ]
+                , Node (atPhrases [2,3]) [
+                  Leaf (atPeriods[0,1]) (pattern (ps !! 1))
+               ,  Leaf (atPeriods[1]) (pattern (ps !! 0))
+               ]
+            ]
+
+--basic chord progressions:
+mkc p o m ints dur = map (\p -> Note dur p) $ pitches $ getChord (p,o) m ints
+
+nico = [mkc C 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
+house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
+dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
+strange = [mkc D 3 Major [2,4,6] wn, mkc D 3 Minor [2,4,6] wn]
+
+-- basic patterns:
+full, falling, waltz, rising :: Pattern
+full = [[0,1,2]]
+sad = [[0,1,2,3]]
+falling = [[2], [1], [0]]
+waltz = [[0], [1,2], [1,2]]
+sadwaltz = [[0,3], [1,2,3], [1,2,3]]
+rising = L.reverse falling
+
+-- basic rhythms:
+n = [(qn + en), (qn + en), qn]
+ronettes = [(qn + en), en, hn]
+ffff = [(qn +en), en, en, en, qn]
+mr = [(qn + en), (qn + en), qn,(qn + en), qn, (qn + en)]
+
+-- RANDOM: ---------------------------------------------------------------------
+
+getRandoms :: Int -> [a] -> State StdGen [a]
+getRandoms x list = sequence $ replicate x (randomSt list)
+
+randomSt :: (RandomGen g) => [a] -> State g a
+randomSt list = state $ getRandom list
+
+getRandom :: (RandomGen g) => [a] -> g -> (a, g)
 getRandom list seed =
   let randomIdx = randomR (0,(length list) -1) seed
   in (list !! fst randomIdx, snd randomIdx)
-
-chords :: OrientedTree (Primitive Pitch)
-chords =
-              Group H [
-                Group V [
-                  Val (Note hn (E,5)),
-                  Val (Note hn (A,4)),
-                  Val (Note hn (C,5))
-                  ],
-                Group V [
-                  Val (Note hn (C,5)),
-                  Val (Note hn (F,4)),
-                  Val (Note hn (A,4))
-                  ],
-                Group V [
-                  Val (Note hn (C,4)),
-                  Val (Note hn (G,4)),
-                  Val (Note hn (E,4))
-                  ],
-                Group V [
-                  Val (Note hn (D,4)),
-                  Val (Note hn (G,4)),
-                  Val (Note hn (B,4))
-                  ]
-                ]
