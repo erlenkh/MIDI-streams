@@ -126,7 +126,7 @@ addElementVert tree path element =
       newE = Group V [alreadyThere, element]
   in replaceElement tree path newE
 
--- SLICE FUNCTIONS -------------------------------------------------------------
+-- SLICES ----------------------------------------------------------------------
 
 -- TODO: define slicing in terms of paths?
 
@@ -135,14 +135,15 @@ data Choice = Some [Int] | All deriving (Show, Eq)
 
 type Slice = [Choice]
 
+-- ---- ---- SLICE CONSTRUCTION ------------------------------------------------
+
 --crashes if lvl >= length slice (might fix with Maybe)
 atLevel :: Int -> [Int] -> (Slice -> Slice)
 atLevel lvl selection slice =
   let (first, second) = splitAt lvl (reverse slice)
   in reverse $ first ++ [Some selection] ++ tail second
 
--- selection should be a slice!
-
+-- selection should be a Choice, like in atDepth, problem occurs with getDepth...
 -- ideally this should return a maybe but it is a lot of work just for idealism:
 atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
 atDepth lvl selection slice =
@@ -167,7 +168,7 @@ getDepth sTrans = maximum $ findIndices (isSome) $ sTrans $ replicate (666) All
 isSome (Some xs) = True
 isSome _  = False
 
--- access by slice:
+-- ---- ---- ACCESS ORIENTED TREE BY SLICE -------------------------------------
 
 extract :: Slice -> OrientedTree a -> OrientedTree a
 extract _ (Val x) = Val x
