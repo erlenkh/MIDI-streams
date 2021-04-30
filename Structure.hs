@@ -14,6 +14,8 @@ module Structure
 , flatten
 , elevate
 , depth
+, smallestDefault
+, atDepth
 ) where
 
 import Data.List
@@ -133,6 +135,40 @@ data Choice = Some [Int] | All deriving (Show, Eq)
 
 type Slice = [Choice]
 
+--crashes if lvl >= length slice (might fix with Maybe)
+atLevel :: Int -> [Int] -> (Slice -> Slice)
+atLevel lvl selection slice =
+  let (first, second) = splitAt lvl (reverse slice)
+  in reverse $ first ++ [Some selection] ++ tail second
+
+-- selection should be a slice!
+
+-- ideally this should return a maybe but it is a lot of work just for idealism:
+atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
+atDepth lvl selection slice =
+  let (first, second) = splitAt lvl slice
+  in first ++ [Some selection] ++ tail second
+
+atDepth' :: Int -> Choice -> (Slice -> Slice) -- is used by partial application
+atDepth' lvl choice slice =
+  let (first, second) = splitAt lvl slice
+  in first ++ [choice] ++ tail second
+
+smallestDefault :: [Slice -> Slice] -> Slice
+smallestDefault sts = replicate ((getMaxDepth sts) + 1) All
+
+getMaxDepth :: [Slice -> Slice] -> Int
+getMaxDepth sts = maximum $ map getDepth sts
+
+-- a piece cannot have more that 666 hierarchical levels, should be generalized
+getDepth :: (Slice -> Slice) -> Int
+getDepth sTrans = maximum $ findIndices (isSome) $ sTrans $ replicate (666) All
+
+isSome (Some xs) = True
+isSome _  = False
+
+-- access by slice:
+
 extract :: Slice -> OrientedTree a -> OrientedTree a
 extract _ (Val x) = Val x
 extract ([]) tree = tree
@@ -181,7 +217,6 @@ instance Functor (PrefixTree v) where
   fmap f (Leaf k v) = Leaf (f k) v
   fmap f (Node k trees) = Node (f k) (map (fmap f) trees)
 
-
 lookupPT :: (Eq k) => PrefixTree v k -> [k] ->  Maybe v
 lookupPT  _ [] = Nothing
 lookupPT (Leaf k v) [x] = if x == k then Just v else Nothing
@@ -199,13 +234,11 @@ getAllPaths (Leaf k v) = [[k]]
 getAllPaths (Node k trees) =
   concat [map (k:) (getAllPaths t) | (t) <- trees]
 
-
 getAllValues :: (Eq k) => PrefixTree v k -> [v]
 getAllValues tree =
   let keys = getAllPaths tree
   in  map (\(Just x) -> x) $ map (lookupPT tree) keys
   --  ^ should never be Nothing, since it only looks up paths from getallPaths
-
 
 depthPT :: PrefixTree v k -> Int
 depthPT (Leaf k v) = 1
@@ -241,8 +274,6 @@ testMT =     Group H [
 
 testOT :: OrientedTree Int
 testOT = Group H [Group V [Val 1, Val 2, Val 3], Group V [Val 4, Val 5]]
-
-xtract = extract [Some[2]] testMT
 
 
 testPT :: PrefixTree Int Char

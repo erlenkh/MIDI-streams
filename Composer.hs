@@ -18,7 +18,6 @@ module Composer
 , Rhythm(..)
 , toMT
 , applyPT
-, atDepth'
 )
 where
 
@@ -74,46 +73,10 @@ invGT = applySF $ T.invert C Major
 -- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
 -- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
 
-type ST = (Slice -> Slice)
-
 atPeriods  = atDepth 0
 atPhrases = atDepth 1
 atMeasures = atDepth 2
 atChords = atDepth 3
-
-
-
---crashes if lvl >= length slice (might fix with Maybe)
-atLevel :: Int -> [Int] -> (Slice -> Slice)
-atLevel lvl selection slice =
-  let (first, second) = splitAt lvl (reverse slice)
-  in reverse $ first ++ [Some selection] ++ tail second
-
--- selection should be a slice!
--- ideally this should return a maybe but it is a lot of work just for idealism:
-atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
-atDepth lvl selection slice =
-  let (first, second) = splitAt lvl slice
-  in first ++ [Some selection] ++ tail second
-
-atDepth' :: Int -> Choice -> (Slice -> Slice) -- is used by partial application
-atDepth' lvl choice slice =
-  let (first, second) = splitAt lvl slice
-  in first ++ [choice] ++ tail second
-
-
-smallestAlls :: [Slice -> Slice] -> Slice
-smallestAlls sts = replicate ((getMaxDepth sts) + 1) All
-
-getMaxDepth :: [Slice -> Slice] -> Int
-getMaxDepth sts = maximum $ map getDepth sts
-
--- a piece cannot have more that 666 hierarchical levels, should be generalized
-getDepth :: (Slice -> Slice) -> Int
-getDepth sTrans = maximum $ L.findIndices (isSome) $ sTrans $ replicate (666) All
-
-isSome (Some xs) = True
-isSome _  = False
 
 -- MUSIC PREFIX-TREE -----------------------------------------------------------
 
@@ -125,15 +88,15 @@ data TI = TI { slc :: Slice, gt :: (MusicTree -> MusicTree)}
 toTIs :: MusicPT -> [TI]
 toTIs pt =
   let stss = getAllPaths pt
-      alls = smallestAlls $ concat stss
-      gts = getAllValues $ fmap ($ alls) pt
+      defaultSlice = smallestDefault $ concat stss
+      gts = getAllValues $ fmap ($ defaultSlice) pt
 -- cant lookup functions in prefix-tree, because no instance of Eq for functions
 -- so applied each slice transformation to the smallest slice of alls necessary.
   in map (toTI) $ zip stss gts
 
 toTI :: ([Slice -> Slice], GT) -> TI
 toTI (sts, gtrans) =
-   TI {slc = foldl (\slc f -> f slc) (smallestAlls sts) sts, gt = gtrans}
+   TI {slc = foldl (\slc f -> f slc) (smallestDefault sts) sts, gt = gtrans}
 -- left to right: ^ lower nodes can overwrite higher nodes
 
 applyTIs :: [TI] -> MusicTree -> MusicTree
@@ -204,10 +167,6 @@ rpattern' pat pitches =
 
 hDurs :: MusicTree -> Rhythm
 hDurs tree = fmap T.getDur $ flatten tree
-
--- TESTING GENERATING PREFIX TREES: --------------------------------------------
-
-
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
