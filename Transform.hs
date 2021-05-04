@@ -23,6 +23,7 @@ module Transform(
 import Euterpea
 import Scale
 import Data.List
+import Data.Maybe
 
 -- MOTIF TRANSFORMATION IN SCALE CONTEXT --------------------------------------
 
@@ -83,7 +84,6 @@ replacePitches  pitches motif  =
       newPrimPs = zipWith replacePitch  (fst splitPs) first
       rest = take 1 second
   in newPrimPs ++ rest ++ replacePitches  (snd splitPs) (drop 1 second)
-
 
 -- fits a sequence to a given time signature
 fit :: Rational -> Motif -> Motif
@@ -173,17 +173,17 @@ getDur :: Primitive Pitch -> Dur
 getDur (Note dur _) = dur
 getDur (Rest dur) = dur
 
-getMaybePitch :: Primitive Pitch -> Maybe Pitch
-getMaybePitch (Note _ p) = Just p
-getMaybePitch (Rest _) = Nothing
+getPitch :: Primitive Pitch -> Maybe Pitch
+getPitch (Note _ p) = Just p
+getPitch (Rest _) = Nothing
 
 getPitches :: Motif -> [Pitch]
 getPitches motif =
-  let pitches = map getMaybePitch motif
-  in map (\(Just x) -> x) $ filter (/= Nothing) $ pitches
+  let pitches = map getPitch motif
+  in catMaybes $ pitches
 
-toSD root mode = (\(Just x) -> x) . Scale.toScaleDeg root mode
-toAP root mode = (\(Just x) -> x) . Scale.toAbsPitch root mode
+toSD root mode = fromJust . Scale.toScaleDeg root mode
+toAP root mode = fromJust . Scale.toAbsPitch root mode
 
 notRest (Rest _ ) = False
 notRest (Note _ _) = True
