@@ -19,6 +19,7 @@ module Structure
 ) where
 
 import Data.List
+import Data.Maybe
 
 
 -- ORIENTED TREE ---------------------------------------------------------------
@@ -227,9 +228,6 @@ lookupPT (Node k ptrees) (x:xs) =  if k == x then check else Nothing
                   Just tree -> lookupPT tree xs
                   Nothing -> Nothing
 
-isJust (Just x) = True
-isJust (Nothing) = False
-
 getAllPaths :: PrefixTree v k -> [[k]]
 getAllPaths (Leaf k v) = [[k]]
 getAllPaths (Node k trees) =
@@ -238,7 +236,7 @@ getAllPaths (Node k trees) =
 getAllValues :: (Eq k) => PrefixTree v k -> [v]
 getAllValues tree =
   let keys = getAllPaths tree
-  in  map (\(Just x) -> x) $ map (lookupPT tree) keys
+  in  map fromJust $ map (lookupPT tree) keys
   --  ^ should never be Nothing, since it only looks up paths from getallPaths
 
 depthPT :: PrefixTree v k -> Int
