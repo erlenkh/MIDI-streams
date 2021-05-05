@@ -116,8 +116,6 @@ getSlices pt = map slc $ toTIs pt
 
 -- RHYTHMS AND PATTERNS --------------------------------------------------------
 
-
-
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
 --    ^ a rhythm, a series of durations that are looped.
 

@@ -19,11 +19,14 @@ main = do
 
   playDev 6 $ treeToMusic patterned
 
-chordProgressions = [dreams]
+chordProgressions = [nico, house, dreams]
 rhythms = [n, ronettes, ffff, evn 4, evn 8, evn 16]
 patterns = [full, sad, falling, waltz, rising, sadwaltz]
 
 -- prefix trees: ---------------------------------------------------------------
+
+-- initially create a datastructure [Int] that contains the amount of members
+-- for each level in the MT.
 
 structured :: Orientation -> [[Primitive Pitch]] -> MusicTree
 structured o chords = Group H $ map (toGroup o) chords
@@ -32,10 +35,12 @@ insertionsPT cs = Node (atPhrases [0..3]) [
               Leaf (atPeriods [0,1]) (insert $ structured V (head cs))
             ]
 
-rhythmsPT rs  = Node (atPeriods [0]) [
-                        Leaf (atMeasures [0,1]) (rhythm (rs !! 0))
-                  , Leaf (atPeriods [1] . atMeasures [0,1]) (rhythm (rs !! 1))
-                  ]
+rhythmsPT rs  = Node (atPeriods [0,1] . atMeasures [0,1]) [
+                        Leaf (atPhrases [0,1]) (rhythm (rs !! 0))
+                    ,   Leaf (atPhrases [2,3]) (rhythm (rs !! 1))
+                    ]
+
+patternsPT' ps = Leaf (atPeriods [1]) (transp 2 . inv )
 
 patternsPT ps = Node (atMeasures [0,1]) [
                   Node (atPhrases [0,1]) [

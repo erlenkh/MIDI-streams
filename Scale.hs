@@ -21,7 +21,7 @@ data Scale = Scale Root [Int] -- scale?
 scalePitches :: Root -> Mode -> Octave -> [Pitch]
 scalePitches root mode octave =
   let modeIntervals = intervals mode
-      rootAbs = absPitch (root, octave)
+      rootAbs = absPitch (root, octave) 
       ff acc x = head acc + x : acc
       scaleAbsPitch = reverse $ foldl ff [rootAbs] modeIntervals
   in map pitch scaleAbsPitch
