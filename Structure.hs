@@ -5,8 +5,6 @@ module Structure
 , Slice (..)
 , PrefixTree(..)
 , toGroup
-, applyGT
-, applyFunction
 , getElements
 , getAllPaths
 , getAllValues
@@ -16,6 +14,7 @@ module Structure
 , depth
 , smallestDefault
 , atDepth
+, applyTT
 ) where
 
 import Data.List
@@ -186,27 +185,56 @@ getElements (All : slice) (Group _ ts) = concat $ map (getElements slice) ts
 getElements (Some idxs : slice) (Group _ ts) =
    concat $ map (getElements slice) (map (ts !!) idxs)
 
---applies function to every element in slice
-applyFunction :: (a -> a) -> Slice -> OrientedTree a -> OrientedTree a
-applyFunction f _ (Val x) = Val (f x)
-applyFunction f (All : slice) (Group o trees) =
-  Group o $ map (applyFunction f slice) trees
-applyFunction f (Some idxs : slice) (Group o trees) =
-  Group o $ zipWith zf trees [0..] where
-    zf tree idx = if idx `elem` idxs then applyFunction f slice tree else tree
+type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 
---applies group transformation to the groups in slice
-applyGT ::
+applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> OrientedTree a
+applyTT _ tt (Val x) = tt $ Val x
+-- |            ^ If Tree is a Val, slicing makes no sense: simply apply tt
+applyTT [c] tt (Group o ts) = Group o $ (handleChoice c) tt ts
+-- |     ^ if slice is single choice, apply tt to chosen trees
+applyTT (c : cs) tt (Group o ts) = Group o $ (handleChoice c) (applyTT cs tt) ts
+-- |     ^ if more choices in slice, continue down tree
+
+handleChoice :: Choice -> ( (a -> a) -> [a] -> [a] )
+handleChoice c = case c of
+                  All -> map
+                  Some idxs -> zipSome idxs
+
+zipSome idxs f trees =
+   zipWith (\tree idx -> if idx `elem` idxs then f tree else tree) trees [0..]
+
+-- alternative formulations:
+{-
+applyTT ::
  Slice -> (OrientedTree a -> OrientedTree a) -> OrientedTree a -> OrientedTree a
-applyGT [All] f (Group o vals) = Group o (map f vals)
-applyGT (All : slice) f (Group o ts) = Group o (map (applyGT slice f) ts)
-applyGT [Some idxs] f (Group o ts) = Group o $ zipWith zf ts [0..]
-  where zf tree idx = if idx `elem` idxs then f tree else tree
-applyGT (Some idxs : slice) f (Group o ts) = Group o $ zipWith zf ts [0..]
-  where zf tree idx = if idx `elem` idxs then applyGT slice f tree else tree
+applyTT [All] f (Group o ts) = Group o (map f ts)
+applyTT (All : slice) f (Group o ts) = Group o (map (applyTT slice f) ts)
+applyTT [Some idxs] f (Group o ts) = Group o $ zipSome idxs f ts
+applyTT (Some idxs : slice) f (Group o ts) = Group o $ zipSome idxs f' ts
+  where f' = applyTT slice f
+
+-}
+
+
+{-
+applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> OrientedTree a
+applyTT _ tt (Val x) = tt $ Val x
+applyTT slice tt (Group o ts) = Group o $ (handleChoice c) f ts
+  where f = case slice of
+              [c] -> tt -- if single choice, apply tree transformation
+              (c:cs) -> applyTT cs tt  -- if more choices, continue down tree
+-}
+
+-- The main difference from Yan Han is that applyTT is applied to TREES and not
+-- Events. Thus the slicing cannot work by simply selecting bottom nodes of tree.
+-- Any node should be able to be selected. Thus we need to differentation between
+-- the case where we only have one choice, and when there are more choices left.
+-- when only one: f should be applied. when more left: we should apply (apply TT slice f),
+-- and thus go further down the rabbit hole.
+
 
 replace ::  Slice -> OrientedTree a -> OrientedTree a -> OrientedTree a
-replace slice newGroup tree = applyGT slice (replaceVal newGroup) tree
+replace slice newGroup tree = applyTT slice (replaceVal newGroup) tree
 
 replaceVal :: a -> a -> a
 replaceVal new old = new

@@ -103,7 +103,7 @@ applyTIs :: [TI] -> MusicTree -> MusicTree
 applyTIs tis tree = foldl (flip applyTI) tree tis
 
 applyTI :: TI -> MusicTree -> MusicTree
-applyTI (TI slice gt) tree = applyGT slice gt tree
+applyTI (TI slice gt) tree = applyTT slice gt tree
 
 applyPT :: MusicPT -> MusicTree -> MusicTree
 applyPT pt tree = applyTIs (toTIs pt) tree
