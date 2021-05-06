@@ -187,6 +187,7 @@ getElements (Some idxs : slice) (Group _ ts) =
 
 type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 
+-- slices should not be able to be longer than depth of tree - 1:
 applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> OrientedTree a
 applyTT _ tt (Val x) = tt $ Val x
 -- |            ^ If Tree is a Val, slicing makes no sense: simply apply tt
@@ -203,27 +204,6 @@ handleChoice c = case c of
 zipSome idxs f trees =
    zipWith (\tree idx -> if idx `elem` idxs then f tree else tree) trees [0..]
 
--- alternative formulations:
-{-
-applyTT ::
- Slice -> (OrientedTree a -> OrientedTree a) -> OrientedTree a -> OrientedTree a
-applyTT [All] f (Group o ts) = Group o (map f ts)
-applyTT (All : slice) f (Group o ts) = Group o (map (applyTT slice f) ts)
-applyTT [Some idxs] f (Group o ts) = Group o $ zipSome idxs f ts
-applyTT (Some idxs : slice) f (Group o ts) = Group o $ zipSome idxs f' ts
-  where f' = applyTT slice f
-
--}
-
-
-{-
-applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> OrientedTree a
-applyTT _ tt (Val x) = tt $ Val x
-applyTT slice tt (Group o ts) = Group o $ (handleChoice c) f ts
-  where f = case slice of
-              [c] -> tt -- if single choice, apply tree transformation
-              (c:cs) -> applyTT cs tt  -- if more choices, continue down tree
--}
 
 -- The main difference from Yan Han is that applyTT is applied to TREES and not
 -- Events. Thus the slicing cannot work by simply selecting bottom nodes of tree.
