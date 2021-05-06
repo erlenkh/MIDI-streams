@@ -194,9 +194,9 @@ applyTT _ tt (Val x) = tt $ Val x
 applyTT [c] tt (Group o ts) = Group o $ (handleChoice c) tt ts
 -- |     ^ if slice is single choice, apply tt to chosen trees
 applyTT (c : cs) tt (Group o ts) = Group o $ (handleChoice c) (applyTT cs tt) ts
--- |     ^ if more choices in slice, continue down tree
+-- |     ^ if more choices in slice, recursively continue down tree
 
--- slices should not be able to be longer than depth of tree - 1:
+-- wack attempt at returning maybe tree:
 applyTT' :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
 applyTT' _ tt (Val x) = Nothing
 -- |            ^ If Tree is a Val, slicing makes no sense.
@@ -207,7 +207,6 @@ applyTT' slice tt tree@(Group o ts) =
       where f = case slice of
                   [c] -> tt -- single choice, apply tt to chosen trees
                   (c:cs) -> applyTT' cs tt -- more choices, continue down tree
-
 
 
 handleChoice :: Choice -> ( (a -> a) -> [a] -> [a] )
