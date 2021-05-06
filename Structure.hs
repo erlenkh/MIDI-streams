@@ -196,6 +196,20 @@ applyTT [c] tt (Group o ts) = Group o $ (handleChoice c) tt ts
 applyTT (c : cs) tt (Group o ts) = Group o $ (handleChoice c) (applyTT cs tt) ts
 -- |     ^ if more choices in slice, continue down tree
 
+-- slices should not be able to be longer than depth of tree - 1:
+applyTT' :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
+applyTT' _ tt (Val x) = Nothing
+-- |            ^ If Tree is a Val, slicing makes no sense.
+applyTT' slice tt tree@(Group o ts) =
+  if length slice > (depth tree) - 1 -- -1 since Vals are not sliceable
+    then Nothing
+    else Just $ Group o $ (handleChoice c) f ts
+      where f = case slice of
+                  [c] -> tt -- single choice, apply tt to chosen trees
+                  (c:cs) -> applyTT' cs tt -- more choices, continue down tree
+
+
+
 handleChoice :: Choice -> ( (a -> a) -> [a] -> [a] )
 handleChoice c = case c of
                   All -> map
