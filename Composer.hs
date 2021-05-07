@@ -1,5 +1,6 @@
 module Composer
 ( MusicTree (..)
+, MusicPT(..)
 , treeToMusic
 , inv
 , rev
@@ -48,31 +49,28 @@ valToMusic (Val (Rest dur)) = Prim (Rest dur)
 
 
 -- GROUP TRANSFORMATIONS: ------------------------------------------------------
-type GT = MusicTree -> MusicTree
+type TT = MusicTree -> MusicTree
 
-toGT :: (T.Motif -> T.Motif) -> GT
-toGT f = applySF f
+toTT :: (T.Motif -> T.Motif) -> TT
+toTT f = applySF f
 
 --example gts, must be generalized:
-inv = toGT $ T.invert C Major
-rev  = toGT $ T.reverse
-transp x = toGT $ T.transpose C Major x
-strong = toGT $ T.strongCadence C Major
-weak = toGT $ T.weakCadence C Major
-ro = toGT . T.reorder
+inv = toTT $ T.invert C Major
+rev  = toTT $ T.reverse
+transp x = toTT $ T.transpose C Major x
+strong = toTT $ T.strongCadence C Major
+weak = toTT $ T.weakCadence C Major
+ro = toTT . T.reorder
 insert new old = new
-mlSD x = toGT $ T.movelastSD C Major x
-ct = toGT . T.cTrans
+mlSD x = toTT $ T.movelastSD C Major x
+ct = toTT . T.cTrans
 
-invGT :: MusicTree -> MusicTree
-invGT = applySF $ T.invert C Major
+invTT :: MusicTree -> MusicTree
+invTT = applySF $ T.invert C Major
 
 -- SLICE TRANSFORMATIONS -------------------------------------------------------
 
--- slice transformations: construction of slices by composition STs
-
--- should they add? i.e. atVoices[0,1] . atVoices[2] = atVoices [0,1,2]?
--- right now atVoices[0,1] . atVoices[2] = atVoices [0,1]
+-- some simple short hands..
 
 atPeriods  = atDepth 0
 atPhrases = atDepth 1
@@ -84,27 +82,28 @@ atChords = atDepth 3
 type MusicPT = PrefixTree (MusicTree -> MusicTree) (Slice -> Slice)
 
  -- Transformative Instruction:
-data TI = TI { slc :: Slice, gt :: (MusicTree -> MusicTree)}
+data TI = TI { slc :: Slice, tt :: (MusicTree -> MusicTree)}
 
 toTIs :: MusicPT -> [TI]
 toTIs pt =
   let stss = getAllPaths pt
       defaultSlice = smallestDefault $ concat stss
-      gts = getAllValues $ fmap ($ defaultSlice) pt
+      tts = getAllValues $ fmap ($ defaultSlice) pt
 -- cant lookup functions in prefix-tree, because no instance of Eq for functions
 -- so applied each slice transformation to the smallest slice of alls necessary.
-  in map (toTI) $ zip stss gts
+  in map (toTI) $ zip stss tts
 
-toTI :: ([Slice -> Slice], GT) -> TI
-toTI (sts, gtrans) =
-   TI {slc = foldl (\slc f -> f slc) (smallestDefault sts) sts, gt = gtrans}
+toTI :: ([Slice -> Slice], TT) -> TI
+toTI (sts, ttrans) =
+   TI {slc = foldl (\slc f -> f slc) (smallestDefault sts) sts, tt = ttrans}
 -- left to right: ^ lower nodes can overwrite higher nodes
 
 applyTIs :: [TI] -> MusicTree -> MusicTree
 applyTIs tis tree = foldl (flip applyTI) tree tis
+-- left to right: ^ functions are applied from left to right in Prefix Tree.
 
 applyTI :: TI -> MusicTree -> MusicTree
-applyTI (TI slice gt) tree = fromJust $ applyTT slice gt tree
+applyTI (TI slice tt) tree = fromJust $ applyTT slice tt tree
 --                              ^ Assumes applyTT works
 applyPT :: MusicPT -> MusicTree -> MusicTree
 applyPT pt tree = applyTIs (toTIs pt) tree
