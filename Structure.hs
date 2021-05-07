@@ -7,7 +7,6 @@ module Structure
 , Slice (..)
 , PrefixTree(..)
 , toGroup
-, getElements
 , getAllPaths
 , getAllValues
 , applySF
@@ -92,41 +91,6 @@ depth :: OrientedTree a -> Int
 depth (Val a) = 1
 depth (Group o trees) = 1 + maximum (map depth trees)
 
--- PATH FUNCTIONS --------------------------------------------------------------
-
-type Path = [Int]
-
-getElement :: OrientedTree a -> Path -> OrientedTree a
-getElement (Val a) [x] = error "element does not exist"
-getElement tree [] = tree
-getElement (Group o elems) (x:xs) = getElement (elems !! x) xs
-
--- if theres already an element x on path, e is inserted before x
-addToGroup :: OrientedTree a -> OrientedTree a -> Path -> OrientedTree a
-addToGroup tree element [] = tree
-addToGroup (Group o elems) element [idx] = Group o (a ++ [element] ++ b)
-  where (a, b) = splitAt idx elems
-addToGroup (Group o elems) element (x:xs) = Group o newElems
-  where (a,e:b) = splitAt x elems
-        newElems = a ++ [addToGroup e element xs] ++ b
-
-removeFromGroup :: OrientedTree a -> Path -> OrientedTree a
-removeFromGroup tree [] = tree
-removeFromGroup (Group o elems) [x] = Group o (a ++ b)
-  where (a, e:b) = splitAt x elems
-removeFromGroup (Group o elems) (x:xs) = Group o newElems
-  where (a, e:b) = splitAt x elems
-        newElems = a ++ [removeFromGroup e xs] ++ b
-
-replaceElement :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
-replaceElement tree path newElement = newTree
-  where newTree = addToGroup (removeFromGroup tree path) newElement path
-
-addElementVert :: OrientedTree a -> Path -> OrientedTree a -> OrientedTree a
-addElementVert tree path element =
-  let alreadyThere = getElement tree path
-      newE = Group V [alreadyThere, element]
-  in replaceElement tree path newE
 
 -- SLICES ----------------------------------------------------------------------
 
@@ -172,25 +136,9 @@ isSome _  = False
 
 -- ---- ---- ACCESS ORIENTED TREE BY SLICE -------------------------------------
 
-extract :: Slice -> OrientedTree a -> OrientedTree a
-extract _ (Val x) = Val x
-extract ([]) tree = tree
-extract (All : slice) (Group o trees) =
-   Group o $ map (extract slice) trees
-extract (Some  idxs : slice) (Group o trees) =
-   Group o $ map (extract slice) (map (trees !!) idxs)
-
-getElements :: Slice -> OrientedTree a -> [OrientedTree a]
-getElements [All] (Group _ ts) = ts
-getElements [Some idxs] (Group _ ts) = map (ts !!) idxs
-getElements (All : slice) (Group _ ts) = concat $ map (getElements slice) ts
-getElements (Some idxs : slice) (Group _ ts) =
-   concat $ map (getElements slice) (map (ts !!) idxs)
-
 type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 
-
--- slices should not be able to be longer than depth of tree - 1:
+-- | slices should not be able to be longer than depth of tree - 1:
 applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
 applyTT _ tt (Val x) = Nothing -- Cannot make a choice in a Val (only Groups)
 applyTT slice tt tree@(Group o ts) =
