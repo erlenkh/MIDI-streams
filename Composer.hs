@@ -28,6 +28,7 @@ import qualified Transform as T
 import Chord
 import qualified Data.List as L
 import qualified Data.Set as S
+import Data.Maybe
 
 -- MUSIC TREE  ------------------------------------------------------------------
 
@@ -103,8 +104,8 @@ applyTIs :: [TI] -> MusicTree -> MusicTree
 applyTIs tis tree = foldl (flip applyTI) tree tis
 
 applyTI :: TI -> MusicTree -> MusicTree
-applyTI (TI slice gt) tree = applyTT slice gt tree
-
+applyTI (TI slice gt) tree = fromJust $ applyTT slice gt tree
+--                              ^ Assumes applyTT works
 applyPT :: MusicPT -> MusicTree -> MusicTree
 applyPT pt tree = applyTIs (toTIs pt) tree
 

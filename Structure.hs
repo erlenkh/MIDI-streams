@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
+
 module Structure
 ( OrientedTree (..)
 , Orientation (..)
@@ -25,7 +27,7 @@ import Data.Maybe
 
 data Orientation = H | V deriving (Show)  -- Horizontal | Vertical
 
-data OrientedTree a = Val a | Group Orientation [OrientedTree a]
+data OrientedTree a = Val a | Group Orientation [OrientedTree a] deriving (Foldable, Traversable)
 
 instance Functor (OrientedTree) where
   fmap f (Val a) = Val (f a)
@@ -187,27 +189,22 @@ getElements (Some idxs : slice) (Group _ ts) =
 
 type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 
+
 -- slices should not be able to be longer than depth of tree - 1:
-applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> OrientedTree a
-applyTT _ tt (Val x) = tt $ Val x
--- |            ^ If Tree is a Val, slicing makes no sense: simply apply tt
-applyTT [c] tt (Group o ts) = Group o $ (handleChoice c) tt ts
--- |     ^ if slice is single choice, apply tt to chosen trees
-applyTT (c : cs) tt (Group o ts) = Group o $ (handleChoice c) (applyTT cs tt) ts
--- |     ^ if more choices in slice, recursively continue down tree
-
--- wack attempt at returning maybe tree:
-applyTT' :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
-applyTT' _ tt (Val x) = Nothing
--- |            ^ If Tree is a Val, slicing makes no sense.
-applyTT' slice tt tree@(Group o ts) =
-  if length slice > (depth tree) - 1 -- -1 since Vals are not sliceable
+applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
+applyTT _ tt (Val x) = Nothing -- Cannot make a choice in a Val (only Groups)
+applyTT slice tt tree@(Group o ts) =
+  if length slice > (depth tree) - 1
     then Nothing
-    else Just $ Group o $ (handleChoice c) f ts
-      where f = case slice of
-                  [c] -> tt -- single choice, apply tt to chosen trees
-                  (c:cs) -> applyTT' cs tt -- more choices, continue down tree
+    else Just $ applyTT' slice tt tree
 
+applyTT' :: Slice -> TreeTransformation a -> OrientedTree a -> OrientedTree a
+applyTT' _ tt (Val x) = tt $ Val x
+-- | (can't happen) ^ If Tree is a Val, slicing makes no sense: simply apply tt
+applyTT' [c] tt (Group o ts) = Group o $ (handleChoice c) tt ts
+-- |     ^ if slice is single choice, apply tt to chosen trees
+applyTT' (c:cs) tt (Group o ts) = Group o $ (handleChoice c) (applyTT' cs tt) ts
+-- |     ^ if more choices in slice, recursively continue down tree
 
 handleChoice :: Choice -> ( (a -> a) -> [a] -> [a] )
 handleChoice c = case c of
@@ -224,10 +221,6 @@ zipSome idxs f trees =
 -- the case where we only have one choice, and when there are more choices left.
 -- when only one: f should be applied. when more left: we should apply (apply TT slice f),
 -- and thus go further down the rabbit hole.
-
-
-replace ::  Slice -> OrientedTree a -> OrientedTree a -> OrientedTree a
-replace slice newGroup tree = applyTT slice (replaceVal newGroup) tree
 
 replaceVal :: a -> a -> a
 replaceVal new old = new
