@@ -20,7 +20,7 @@ main = do
   playDev 6 $ treeToMusic patterned
 
 chordProgressions = [nico, house, dreams]
-rhythms = [n, ronettes, ffff, evn 4, evn 8, evn 16]
+rhythms = [n, ronettes, ffff, evn 4]
 patterns = [full, sad, falling, waltz, rising, sadwaltz]
 
 -- prefix trees: ---------------------------------------------------------------
@@ -87,3 +87,16 @@ getRandom :: (RandomGen g) => [a] -> g -> (a, g)
 getRandom list seed =
   let randomIdx = randomR (0,(length list) -1) seed
   in (list !! fst randomIdx, snd randomIdx)
+
+
+-- EXPERIMENTATION ZONE: -------------------------------------------------------
+
+-- this zone is for experimenting on generating prefix trees.
+
+-- general patttern : genPT ::  Plan -> MusicTree -> MusicPT
+
+data Plan = Plan { size :: [Int], rhythms :: [Rhythm], patterns :: [Pattern]}
+
+genPT :: MusicTree -> MusicPT
+
+genPT
