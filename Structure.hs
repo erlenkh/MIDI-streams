@@ -26,7 +26,8 @@ import Data.Maybe
 
 data Orientation = H | V deriving (Show)  -- Horizontal | Vertical
 
-data OrientedTree a = Val a | Group Orientation [OrientedTree a] deriving (Foldable, Traversable)
+data OrientedTree a = Val a | Group Orientation [OrientedTree a]
+ deriving (Foldable, Traversable)
 
 instance Functor (OrientedTree) where
   fmap f (Val a) = Val (f a)
@@ -58,6 +59,14 @@ showTree n (Group V treez) = "\n" ++ pad n ++ "V: " ++ vertShow ++ "\n"
 instance (Show a) => Show (OrientedTree a) where
   show x = "\n" ++ showTree 0 x
 
+depth :: OrientedTree a -> Int
+depth (Val a) = 1
+depth (Group o trees) = 1 + maximum (map depth trees)
+
+children :: OrientedTree a -> Int
+children (Val a) = 1
+children (Group o trees) = length (trees)
+
 toGroup :: Orientation -> [a] -> OrientedTree a
 toGroup H prims = Group H (map (\x -> Val x) prims)
 toGroup V prims = Group V (map (\x -> Val x) prims)
@@ -86,11 +95,6 @@ enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
   ff prevGroups x = prevGroups ++ [enumerate' (num + size prevGroups) x]
   size = sum . map fst
   numTrees = map snd numGroups
-
-depth :: OrientedTree a -> Int
-depth (Val a) = 1
-depth (Group o trees) = 1 + maximum (map depth trees)
-
 
 -- SLICES ----------------------------------------------------------------------
 
@@ -136,6 +140,13 @@ isSome _  = False
 
 -- ---- ---- ACCESS ORIENTED TREE BY SLICE -------------------------------------
 
+getElements :: Slice -> OrientedTree a -> [OrientedTree a]
+getElements [All] (Group _ ts) = ts
+getElements [Some idxs] (Group _ ts) = map (ts !!) idxs
+getElements (All : slice) (Group _ ts) = concat $ map (getElements slice) ts
+getElements (Some idxs : slice) (Group _ ts) =
+   concat $ map (getElements slice) (map (ts !!) idxs)
+
 type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 
 -- | slices should not be able to be longer than depth of tree - 1:
@@ -161,14 +172,6 @@ handleChoice c = case c of
 
 zipSome idxs f trees =
    zipWith (\tree idx -> if idx `elem` idxs then f tree else tree) trees [0..]
-
-
--- The main difference from Yan Han is that applyTT is applied to TREES and not
--- Events. Thus the slicing cannot work by simply selecting bottom nodes of tree.
--- Any node should be able to be selected. Thus we need to differentation between
--- the case where we only have one choice, and when there are more choices left.
--- when only one: f should be applied. when more left: we should apply (apply TT slice f),
--- and thus go further down the rabbit hole.
 
 replaceVal :: a -> a -> a
 replaceVal new old = new
@@ -253,5 +256,4 @@ testPT = Node 'C' [
 
 
 -- TODO allow the operation on sequences of notes that are not in the same group
--- TODO Make the tree operations return maybe so we can allow failure..
 -- TODO address merging trees
