@@ -5,6 +5,7 @@ module Scale
 , toScaleDeg
 , Root
 , ScaleDeg
+, Scale
 ) where
 
   -- TODO: Make scale datatype...
@@ -16,12 +17,12 @@ import qualified Data.Map as Map
 type Root = PitchClass
 type ScaleDeg = Int
 
-data Scale = Scale Root [Int] -- scale?
+data Scale = Scale Root Mode
 
 scalePitches :: Root -> Mode -> Octave -> [Pitch]
 scalePitches root mode octave =
   let modeIntervals = intervals mode
-      rootAbs = absPitch (root, octave) 
+      rootAbs = absPitch (root, octave)
       ff acc x = head acc + x : acc
       scaleAbsPitch = reverse $ foldl ff [rootAbs] modeIntervals
   in map pitch scaleAbsPitch
