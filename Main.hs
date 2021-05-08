@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
 import System.Random
 import Composer
 import Structure
@@ -6,18 +7,19 @@ import Euterpea
 import Chord
 import qualified Data.List as L
 import Control.Monad.State
+import Scale
 
 main = do
   gen <- newStdGen
-  let (cps,gen2) = runState (getRandoms 1 chordProgressions) gen
-  let (rs, gen3) = runState (getRandoms 2 rhythms) gen2
-  let (ps, gen4) = runState (getRandoms 2 patterns) gen3
+  let (cps,gen2) = runState (getRandoms 2 chordProgressions) gen
+--  let (rs, gen3) = runState (getRandoms 2 rhythms) gen2
+--  let (ps, gen4) = runState (getRandoms 2 patterns) gen3
 
   let inserted = toMT $ insertionsPT cps
-  let rhythmed = applyPT (rhythmsPT rs) inserted
-  let patterned = applyPT (patternsPT ps) rhythmed
+  --let rhythmed = applyPT (rhythmsPT rs) inserted
+--  let patterned = applyPT (patternsPT ps) rhythmed
 
-  playDev 6 $ treeToMusic patterned
+  playDev 6 $ treeToMusic inserted
 
 chordProgressions = [nico, house, dreams]
 rhythms = [n, ronettes, ffff, evn 4]
@@ -25,31 +27,14 @@ patterns = [full, sad, falling, waltz, rising, sadwaltz]
 
 -- prefix trees: ---------------------------------------------------------------
 
--- initially create a datastructure [Int] that contains the amount of members
--- for each level in the MT.
-
 structured :: Orientation -> [[Primitive Pitch]] -> MusicTree
 structured o chords = Group H $ map (toGroup o) chords
 
-insertionsPT cs = Node (atPhrases [0..3]) [
-              Leaf (atPeriods [0,1]) (insert $ structured V (head cs))
-            ]
-
-rhythmsPT rs  = Node (atPeriods [0,1] . atMeasures [0,1]) [
-                        Leaf (atPhrases [0,1]) (rhythm (rs !! 0))
-                    ,   Leaf (atPhrases [2,3]) (rhythm (rs !! 1))
-                    ]
-
-patternsPT' ps = Leaf (atPeriods [1]) (transp 2 . inv )
-
-patternsPT ps = Node (atMeasures [0,1]) [
-                  Node (atPhrases [0,1]) [
-                    Leaf (atPeriods[0,1]) (pattern (ps !! 0))
-                 ]
-                , Node (atPhrases [2,3]) [
-                  Leaf (atPeriods[0,1]) (pattern (ps !! 1))
-               ,  Leaf (atPeriods[1]) (pattern (ps !! 0))
-               ]
+insertionsPT cs = Node (atDepth 0 [0..1]) [
+              Node (atDepth 1 [0..2]) [
+                Leaf (atDepth 2 [0..1]) (insert $ structured V (cs !! 0 ))
+              , Leaf (atDepth 2 [2..3]) (insert $ structured V (cs !! 1))
+              ]
             ]
 
 --basic chord progressions:
@@ -93,10 +78,91 @@ getRandom list seed =
 
 -- this zone is for experimenting on generating prefix trees.
 
+-- for NOW: in OT each level the nodes have the same amount of members?
+
 -- general patttern : genPT ::  Plan -> MusicTree -> MusicPT
 
-data Plan = Plan { size :: [Int], rhythms :: [Rhythm], patterns :: [Pattern]}
+data Plan = Plan { _rhythms :: [Rhythm]
+                 , _patterns :: [Pattern]
+                 , _chords :: [[Primitive Pitch]]
+                 , _ptShape :: Shape
+                 , _otShape :: Shape
+        --         , _scale :: Scale
+                 }
 
-genPT :: MusicTree -> MusicPT
+plan = Plan { _rhythms = [n, ronettes]
+            , _patterns = [full, sad]
+            , _chords = house
+            }
 
-genPT
+
+data Shape = SLeaf Int | SNode [Shape]
+
+sDepth :: Shape -> Int
+sDepth (SLeaf x) = 1
+sDepth (SNode shapes) = 1 + maximum (map sDepth shapes)
+-- ^ tree denoting shape of a tree x.
+-- Only SLeaves need to say how many Leaves x has.
+-- For SNode, this number is the length of its list of members.
+
+shape = SNode [SLeaf 2]
+
+sm = atDepth 0 [1]
+tt = id
+
+defaultPT :: Shape -> MusicPT
+defaultPT (SLeaf n) = Node id (replicate n $ Leaf id (id))
+defaultPT (SNode shapes) = Node id (map defaultPT shapes)
+-- |                ^ id is default function. doesnt change anything..
+
+-- GEN MEANS RANDOM!
+genPT :: StdGen -> Plan -> MusicPT
+genPT gen plan =
+  let defaultPT = defaultPT (_ptShape plan)
+      maxDepth = (sDepth (_otShape plan)) - 1
+
+-- how to read Shape?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{-
+chordInsert :: Plan -> StdGen -> MusicPT
+chordInsert plan =
+  let c = _complexity plan
+      chords = _chords plan
+  in Node (getSM ) [
+         Leaf (getSM) (insert $ structured V chords)
+    ]
+
+
+getSM :: StdGen -> Int -> (Slice -> Slice)
+getSM gen d plan = atDepth d [0..(fst $ getRandom (members !! d) gen)]
+
+--sizes gen plan = fst $ runState (getRandoms (_otDepth plan) (_members plan)) gen
+
+-}
+{-
+genPT :: Plan -> MusicTree -> MusicPT
+genPT plan mtree =
+    let
+    in
+
+-}
