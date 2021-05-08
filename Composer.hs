@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
+-- ^ flex instsances so we can define instance show for functions..
 module Composer
 ( MusicTree (..)
 , MusicPT(..)
@@ -80,6 +82,9 @@ atChords = atDepth 3
 -- MUSIC PREFIX-TREE -----------------------------------------------------------
 
 type MusicPT = PrefixTree (MusicTree -> MusicTree) (Slice -> Slice)
+
+instance Show (MusicTree -> MusicTree) where
+  show tt = "TT" -- cannot show a function, so just show "TT" instead
 
  -- Transformative Instruction:
 data TI = TI { slc :: Slice, tt :: (MusicTree -> MusicTree)}
