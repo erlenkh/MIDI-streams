@@ -105,6 +105,10 @@ data Choice = Some [Int] | All deriving (Show, Eq)
 
 type Slice = [Choice]
 
+instance Show (Slice -> Slice) where
+  show st =  "ST" --  show $ st $ smallestDefault [st] (disabled for now)
+-- ^ in order to show slice transformation (a function), apply to default slice
+
 -- ---- ---- SLICE CONSTRUCTION ------------------------------------------------
 
 --crashes if lvl >= length slice (might fix with Maybe)
@@ -183,6 +187,7 @@ data PrefixTree v k = Leaf k v | Node k [PrefixTree v k] deriving (Show)
 instance Functor (PrefixTree v) where
   fmap f (Leaf k v) = Leaf (f k) v
   fmap f (Node k trees) = Node (f k) (map (fmap f) trees)
+
 
 lookupPT :: (Eq k) => PrefixTree v k -> [k] ->  Maybe v
 lookupPT  _ [] = Nothing
