@@ -27,7 +27,7 @@ patterns = [full, sad, falling, waltz, rising, sadwaltz]
 
 -- prefix trees: ---------------------------------------------------------------
 
-structured :: Orientation -> [[Primitive Pitch]] -> MusicTree
+structured :: Orientation -> [[Primitive Pitch]] -> MusicOT
 structured o chords = Group H $ map (toGroup o) chords
 
 insertionsPT cs = Node (atDepth 0 [0..1]) [
@@ -80,23 +80,25 @@ getRandom list seed =
 
 -- for NOW: in OT each level the nodes have the same amount of members?
 
--- general patttern : genPT ::  Plan -> MusicTree -> MusicPT
+-- general patttern : genPT ::  Plan -> MusicOT -> MusicPT
 
 data Plan = Plan { _rhythms :: [Rhythm]
                  , _patterns :: [Pattern]
                  , _chords :: [[Primitive Pitch]]
                  , _ptShape :: Shape
-                 , _otShape :: Shape
+  --               , _otShape :: Shape
         --         , _scale :: Scale
                  }
 
 plan = Plan { _rhythms = [n, ronettes]
             , _patterns = [full, sad]
             , _chords = house
+            , _ptShape = shape
             }
 
 
-data Shape = SLeaf Int | SNode [Shape]
+data Shape = SLeaf Int | SNode [Shape] deriving Show -- problematic?
+-- what if a node contains 2 Vals and 1 Group! This thing is invalid!
 
 sDepth :: Shape -> Int
 sDepth (SLeaf x) = 1
@@ -116,19 +118,56 @@ defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 -- |                ^ id is default function. doesnt change anything..
 
 -- GEN MEANS RANDOM!
-genPT :: StdGen -> Plan -> MusicPT
-genPT gen plan =
-  let defaultPT = defaultPT (_ptShape plan)
-      maxDepth = (sDepth (_otShape plan)) - 1
-
--- how to read Shape?
-
+genPT :: StdGen -> Plan -> (OrientedTree a) -> MusicPT
+genPT gen plan oTree =
+  let dpt = defaultPT (_ptShape plan)
+      sliceMods = genSliceMods gen dpt oTree
+  in elevatePT sliceMods dpt
 
 
+genSliceMods gen pt ot =
+  let (depths, gen2) = randomDepths gen (keys pt) ot
+      (widths, gen3) = randomWidths gen depths ot
+  in zipWith (\d w -> atDepth d [0..w]) depths widths
+
+
+randomDepths :: StdGen -> Int -> OrientedTree a -> ([Int], StdGen)
+randomDepths gen n ot = runState (getRandoms n (depthRange ot)) gen
+
+randomWidths :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
+randomWidths gen depths ot =
+  runState (sequence $ map (randomSt . widthRange ot) depths) gen
 
 
 
+testMT :: OrientedTree Char
+testMT =     Group H [
+                Group V [
+                  Val 'C',
+                  Val 'A',
+                  Val 'T'
+                ],
+                Group V [
+                  Val 'D',
+                  Val 'O',
+                  Val 'G'
+                ],
+                Group H [
+                  Group H [
+                    Val 'K',
+                    Val 'I',
+                    Val 'L'
+                  ],
+                  Group H [
+                    Val 'L',
+                    Val 'E',
+                    Val 'R'
+                  ]
+                ]
+              ]
 
+testOT :: OrientedTree Int
+testOT = Group H [Group V [Val 1, Val 2, Val 3], Group V [Val 4, Val 5]]
 
 
 
@@ -160,7 +199,7 @@ getSM gen d plan = atDepth d [0..(fst $ getRandom (members !! d) gen)]
 
 -}
 {-
-genPT :: Plan -> MusicTree -> MusicPT
+genPT :: Plan -> MusicOT -> MusicPT
 genPT plan mtree =
     let
     in
