@@ -16,6 +16,11 @@ module Structure
 , smallestDefault
 , atDepth
 , applyTT
+, depthRange
+, widthRange
+, widthsAtDepth
+, keys
+, elevatePT
 ) where
 
 import Data.List
@@ -59,14 +64,6 @@ showTree n (Group V treez) = "\n" ++ pad n ++ "V: " ++ vertShow ++ "\n"
 instance (Show a) => Show (OrientedTree a) where
   show x = "\n" ++ showTree 0 x
 
-depth :: OrientedTree a -> Int
-depth (Val a) = 1
-depth (Group o trees) = 1 + maximum (map depth trees)
-
-children :: OrientedTree a -> Int
-children (Val a) = 1
-children (Group o trees) = length (trees)
-
 toGroup :: Orientation -> [a] -> OrientedTree a
 toGroup H prims = Group H (map (\x -> Val x) prims)
 toGroup V prims = Group V (map (\x -> Val x) prims)
@@ -95,6 +92,52 @@ enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
   ff prevGroups x = prevGroups ++ [enumerate' (num + size prevGroups) x]
   size = sum . map fst
   numTrees = map snd numGroups
+
+
+  -- SIZE FUNCTIONS ------------------------------------------------------------
+
+depth :: OrientedTree a -> Int
+depth (Val a) = 1
+depth (Group o trees) = 1 + maximum (map depth trees)
+
+width :: OrientedTree a -> Int
+width (Val a) = 1
+width (Group o trees) = length (trees)
+
+-- range of depth levels in tree:
+depthRange :: OrientedTree a -> [Int]
+depthRange tree = [0 .. (depth tree) -2] -- -1 bc of Vals, and -1 bc of 0-index
+
+-- range of width levels in tree at a given depth:
+widthRange :: OrientedTree a -> Int -> [Int]
+widthRange tree depth = [0 .. minimum $ widthsAtDepth tree depth]
+-- ^ min due to slicing, (and since the width at a depth is mostly constant)
+
+widthsAtDepth :: OrientedTree a -> Int -> [Int]
+widthsAtDepth tree depth = map (width . getElement tree) (paths depth tree)
+
+
+-- PATH FUNCTIONS --------------------------------------------------------------
+
+type Path = [Int]
+
+-- paths to all elements at depth d:
+paths :: Int -> OrientedTree a -> [Path]
+paths d tree =
+  let aps = allPaths tree
+  in nub $ map (take (d)) aps -- depth is idx of path.
+
+allPaths :: OrientedTree a -> [Path]
+allPaths (Val x) = [[]]
+allPaths (Group o trees) =
+  concat [map (c:) (allPaths t) | (c,t) <- zip [0 .. ] trees]
+
+-- needs to be with MAYBE:
+getElement :: OrientedTree a -> Path -> OrientedTree a
+getElement (Val a) [x] = error "element does not exist"
+getElement tree [] = tree
+getElement (Group o elems) (x:xs) = getElement (elems !! x) xs
+
 
 -- SLICES ----------------------------------------------------------------------
 
@@ -213,6 +256,39 @@ depthPT :: PrefixTree v k -> Int
 depthPT (Leaf k v) = 1
 depthPT (Node k trees) = 1 + maximum (map depthPT trees)
 
+keys :: (PrefixTree k v) -> Int
+keys (Leaf k v) = 1
+keys (Node k trees) = 1 + (sum $ map keys trees)
+
+
+elevatePT :: [k] -> PrefixTree v k -> PrefixTree v k
+elevatePT flat tree = fmap ff $ enumeratePT tree where
+  ff (idx, value) = if idx < length flat then flat !! idx else value
+
+-- enumerates each Val from left to right
+enumeratePT :: PrefixTree v k -> PrefixTree v (Int, k)
+enumeratePT = snd . enumeratePT' 0
+
+-- maybe make this only enumerate what is in the slice?
+enumeratePT' :: Int -> PrefixTree v k -> (Int, PrefixTree v (Int, k))
+enumeratePT' num (Leaf k v) = (1, Leaf (num, k) v)
+enumeratePT' num (Node k (x:xs)) = (size numNodes + 1, Node (num, k) numTrees) where
+  nextNum = num + 1
+  numNodes = foldl ff [(enumeratePT' nextNum x)] xs
+  ff prevGroups x = prevGroups ++ [enumeratePT' (nextNum + size prevGroups) x]
+  size = sum . map fst
+  numTrees = map snd numNodes
+
+
+{-
+  enumerate' :: Int -> OrientedTree a -> (Int, OrientedTree (Int, a))
+  enumerate' num (Val x) = (1, Val (num, x))
+  enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
+    numGroups = foldl ff [(enumerate' num x)] xs
+    ff prevGroups x = prevGroups ++ [enumerate' (num + size prevGroups) x]
+    size = sum . map fst
+    numTrees = map snd numGroups
+-}
 -- TESTING ---------------------------------------------------------------------
 
 testMT :: OrientedTree Char
