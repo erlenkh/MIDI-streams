@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
 -- ^ flex instsances so we can define instance show for functions..
 module Composer
-( MusicTree (..)
+( MusicOT (..)
 , MusicPT(..)
 , treeToMusic
 , inv
@@ -35,23 +35,23 @@ import Data.Maybe
 
 -- MUSIC TREE  ------------------------------------------------------------------
 
-type MusicTree = OrientedTree (Primitive Pitch)
+type MusicOT = OrientedTree (Primitive Pitch)
 
 -- converts from a piece of music from orientedTree to Euterpeas 'Music Pitch'
 -- enables us to play the piece as MIDI with built-in Euterpea functions
 
-treeToMusic :: MusicTree -> Music (Pitch, Volume)
+treeToMusic :: MusicOT -> Music (Pitch, Volume)
 treeToMusic (Val x) = valToMusic (Val x)
 treeToMusic (Group H trees) = line (map treeToMusic trees)
 treeToMusic (Group V trees) = chord (map treeToMusic trees)
 
-valToMusic :: MusicTree -> Music (Pitch, Volume)
+valToMusic :: MusicOT -> Music (Pitch, Volume)
 valToMusic (Val (Note dur p)) = Prim ((Note dur (p, 75)))
 valToMusic (Val (Rest dur)) = Prim (Rest dur)
 
 
 -- GROUP TRANSFORMATIONS: ------------------------------------------------------
-type TT = MusicTree -> MusicTree
+type TT = MusicOT -> MusicOT
 
 toTT :: (T.Motif -> T.Motif) -> TT
 toTT f = applySF f
@@ -67,7 +67,7 @@ insert new old = new
 mlSD x = toTT $ T.movelastSD C Major x
 ct = toTT . T.cTrans
 
-invTT :: MusicTree -> MusicTree
+invTT :: MusicOT -> MusicOT
 invTT = applySF $ T.invert C Major
 
 -- SLICE TRANSFORMATIONS -------------------------------------------------------
@@ -81,13 +81,13 @@ atChords = atDepth 3
 
 -- MUSIC PREFIX-TREE -----------------------------------------------------------
 
-type MusicPT = PrefixTree (MusicTree -> MusicTree) (Slice -> Slice)
+type MusicPT = PrefixTree (MusicOT -> MusicOT) (Slice -> Slice)
 
-instance Show (MusicTree -> MusicTree) where
+instance Show (MusicOT -> MusicOT) where
   show tt = "TT" -- cannot show a function, so just show "TT" instead
 
  -- Transformative Instruction:
-data TI = TI { slc :: Slice, tt :: (MusicTree -> MusicTree)}
+data TI = TI { slc :: Slice, tt :: (MusicOT -> MusicOT)}
 
 toTIs :: MusicPT -> [TI]
 toTIs pt =
@@ -103,17 +103,17 @@ toTI (sts, ttrans) =
    TI {slc = foldl (\slc f -> f slc) (smallestDefault sts) sts, tt = ttrans}
 -- left to right: ^ lower nodes can overwrite higher nodes
 
-applyTIs :: [TI] -> MusicTree -> MusicTree
+applyTIs :: [TI] -> MusicOT -> MusicOT
 applyTIs tis tree = foldl (flip applyTI) tree tis
 -- left to right: ^ functions are applied from left to right in Prefix Tree.
 
-applyTI :: TI -> MusicTree -> MusicTree
+applyTI :: TI -> MusicOT -> MusicOT
 applyTI (TI slice tt) tree = fromJust $ applyTT slice tt tree
 --                              ^ Assumes applyTT works
-applyPT :: MusicPT -> MusicTree -> MusicTree
+applyPT :: MusicPT -> MusicOT -> MusicOT
 applyPT pt tree = applyTIs (toTIs pt) tree
 
-toMT :: MusicPT -> MusicTree
+toMT :: MusicPT -> MusicOT
 toMT pt = let tis = toTIs pt in applyTIs tis (makeStartingTree tis)
 
 getSlices :: MusicPT -> [Slice]
@@ -127,7 +127,7 @@ type Rhythm = [Dur] -- problem: how do we differentiate between a note and a res
 evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
 evn x = replicate x (1/fromIntegral x)
 
-rhythm :: Rhythm -> MusicTree -> MusicTree
+rhythm :: Rhythm -> MusicOT -> MusicOT
 rhythm rm tree =
   let trees = (replicate (length rm) tree)
   in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
@@ -139,11 +139,11 @@ type Pattern = [[Int]]
 -- ^ a pattern of scale degrees/ chord degrees. Represents a H group og V groups
 
 -- takes a group H of group V and returns a group H of Group Vs:
-pattern :: Pattern -> MusicTree -> MusicTree
+pattern :: Pattern -> MusicOT -> MusicOT
 pattern p (Group o chords) =
   Group H $ zipWith (extract) (concat $ repeat p) chords
 
-extract :: [Int] -> MusicTree -> MusicTree
+extract :: [Int] -> MusicOT -> MusicOT
 extract xs (Group o ns) =
   let sel = L.sort xs
   in if length ns > maximum sel then Group V $ map (ns !!) sel
@@ -159,16 +159,16 @@ rp r p = zip r (concat $ repeat p)
 
 -- takes in a pattern and a musicTree, and gives out a musictree with the
 -- pitches from the OG tree in the form of the pattern:
-rpattern :: RPattern -> MusicTree -> MusicTree
+rpattern :: RPattern -> MusicOT -> MusicOT
 rpattern pat tree = rpattern' pat (T.getPitches $ flatten tree)
 
-rpattern' :: RPattern -> [Pitch] -> MusicTree
+rpattern' :: RPattern -> [Pitch] -> MusicOT
 rpattern' pat pitches =
   let v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
   -- ^ function that creates a Vertical group from one pattern-element
   in Group H $ map v pat
 
-hDurs :: MusicTree -> Rhythm
+hDurs :: MusicOT -> Rhythm
 hDurs tree = fmap T.getDur $ flatten tree
 
 -- TESTING ZONE: ---------------------------------------------------------------
@@ -187,13 +187,13 @@ data TreeShape =
   | TLeaf
   deriving Show
 
-makeStartingTree :: [TI] -> MusicTree
+makeStartingTree :: [TI] -> MusicOT
 makeStartingTree tis =
   let slices        = map slc tis
       treeStructure = foldr addSlice TLeaf slices
   in  toDefaultOrientedTree treeStructure
 
-toDefaultOrientedTree :: TreeShape -> MusicTree
+toDefaultOrientedTree :: TreeShape -> MusicOT
 toDefaultOrientedTree =
   go $ repeat (Group H) -- left is top
  where
