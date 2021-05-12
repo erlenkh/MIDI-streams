@@ -19,8 +19,10 @@ module Structure
 , depthRange
 , widthRange
 , widthsAtDepth
-, keys
-, elevatePT
+, keysAmt
+, valuesAmt
+, elevateKeys
+, elevateValues
 ) where
 
 import Data.List
@@ -231,6 +233,9 @@ instance Functor (PrefixTree v) where
   fmap f (Leaf k v) = Leaf (f k) v
   fmap f (Node k trees) = Node (f k) (map (fmap f) trees)
 
+valMap :: (v -> w) -> PrefixTree v k -> PrefixTree w k
+valMap f (Leaf k v) = Leaf k (f v)
+valMap f (Node k trees) = Node k (map (valMap f) trees)
 
 lookupPT :: (Eq k) => PrefixTree v k -> [k] ->  Maybe v
 lookupPT  _ [] = Nothing
@@ -256,39 +261,49 @@ depthPT :: PrefixTree v k -> Int
 depthPT (Leaf k v) = 1
 depthPT (Node k trees) = 1 + maximum (map depthPT trees)
 
-keys :: (PrefixTree k v) -> Int
-keys (Leaf k v) = 1
-keys (Node k trees) = 1 + (sum $ map keys trees)
+keysAmt :: (PrefixTree k v) -> Int
+keysAmt (Leaf k v) = 1
+keysAmt (Node k trees) = 1 + (sum $ map keysAmt trees)
 
+valuesAmt :: PrefixTree k v -> Int
+valuesAmt (Leaf k v) = 1
+valuesAmt (Node k trees) =  sum $ map valuesAmt trees
 
-elevatePT :: [k] -> PrefixTree v k -> PrefixTree v k
-elevatePT flat tree = fmap ff $ enumeratePT tree where
+elevateKeys :: [k] -> PrefixTree v k -> PrefixTree v k
+elevateKeys flat tree = fmap ff $ enumerateKeys tree where
   ff (idx, value) = if idx < length flat then flat !! idx else value
 
 -- enumerates each Val from left to right
-enumeratePT :: PrefixTree v k -> PrefixTree v (Int, k)
-enumeratePT = snd . enumeratePT' 0
+enumerateKeys :: PrefixTree v k -> PrefixTree v (Int, k)
+enumerateKeys = snd . enumerateKeys' 0
 
 -- maybe make this only enumerate what is in the slice?
-enumeratePT' :: Int -> PrefixTree v k -> (Int, PrefixTree v (Int, k))
-enumeratePT' num (Leaf k v) = (1, Leaf (num, k) v)
-enumeratePT' num (Node k (x:xs)) = (size numNodes + 1, Node (num, k) numTrees) where
+enumerateKeys' :: Int -> PrefixTree v k -> (Int, PrefixTree v (Int, k))
+enumerateKeys' num (Leaf k v) = (1, Leaf (num, k) v)
+enumerateKeys' num (Node k (x:xs)) = (size numNodes + 1, Node (num, k) numTrees) where
   nextNum = num + 1
-  numNodes = foldl ff [(enumeratePT' nextNum x)] xs
-  ff prevGroups x = prevGroups ++ [enumeratePT' (nextNum + size prevGroups) x]
+  numNodes = foldl ff [(enumerateKeys' nextNum x)] xs
+  ff prevGroups x = prevGroups ++ [enumerateKeys' (nextNum + size prevGroups) x]
+  size = sum . map fst
+  numTrees = map snd numNodes
+
+elevateValues :: [v] -> PrefixTree v k -> PrefixTree v k
+elevateValues flat tree = valMap ff $ enumerateValues tree where
+  ff (idx, value) = if idx < length flat then flat !! idx else value
+
+enumerateValues :: PrefixTree v k -> PrefixTree (Int, v) k
+enumerateValues = snd . enumerateValues' 0
+
+enumerateValues' :: Int -> PrefixTree v k -> (Int, PrefixTree (Int, v) k)
+enumerateValues' num (Leaf k v) = (1, Leaf k (num,v))
+enumerateValues' num (Node k (x:xs)) = (size numNodes, Node k numTrees) where
+  nextNum = num
+  numNodes = foldl ff [(enumerateValues' nextNum x)] xs
+  ff prevGroups x = prevGroups ++ [enumerateValues' (nextNum + size prevGroups) x]
   size = sum . map fst
   numTrees = map snd numNodes
 
 
-{-
-  enumerate' :: Int -> OrientedTree a -> (Int, OrientedTree (Int, a))
-  enumerate' num (Val x) = (1, Val (num, x))
-  enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
-    numGroups = foldl ff [(enumerate' num x)] xs
-    ff prevGroups x = prevGroups ++ [enumerate' (num + size prevGroups) x]
-    size = sum . map fst
-    numTrees = map snd numGroups
--}
 -- TESTING ---------------------------------------------------------------------
 
 testMT :: OrientedTree Char
