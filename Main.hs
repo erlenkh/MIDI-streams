@@ -16,14 +16,12 @@ main = do
 --  let (ps, gen4) = runState (getRandoms 2 patterns) gen3
 
   let inserted = toMT $ insertionsPT cps
-  --let rhythmed = applyPT (rhythmsPT rs) inserted
---  let patterned = applyPT (patternsPT ps) rhythmed
+  let rhythmed = applyPT (genPT gen rhythmPlan inserted) inserted
+  let patterned = applyPT (genPT gen patternPlan rhythmed) rhythmed
 
-  playDev 6 $ treeToMusic inserted
+  playDev 6 $ treeToMusic patterned
 
-chordProgressions = [nico, house, dreams]
-rhythms = [n, ronettes, ffff, evn 4]
-patterns = [full, sad, falling, waltz, rising, sadwaltz]
+nextOtree gen ptPlan otree = applyPT (genPT gen ptPlan otree) otree
 
 -- prefix trees: ---------------------------------------------------------------
 
@@ -37,6 +35,11 @@ insertionsPT cs = Node (atDepth 0 [0..1]) [
               ]
             ]
 
+-- selected chords/patterns/rhythms:
+chordProgressions = [nico, house, dreams]
+rhythms = [n, ronettes, ffff, evn 4]
+patterns = [full, sad, falling, waltz, rising, sadwaltz]
+
 --basic chord progressions:
 mkc p o m ints dur = map (\p -> Note dur p) $ pitches $ getChord (p,o) m ints
 
@@ -44,6 +47,7 @@ nico = [mkc C 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
 house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
 dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
 strange = [mkc D 3 Major [2,4,6] wn, mkc D 3 Minor [2,4,6] wn]
+
 
 -- basic patterns:
 full, falling, waltz, rising :: Pattern
@@ -82,23 +86,25 @@ getRandom list seed =
 
 -- general patttern : genPT ::  Plan -> MusicOT -> MusicPT
 
-data Plan = Plan { _rhythms :: [Rhythm]
-                 , _patterns :: [Pattern]
+data Plan = Plan { _ttPool :: [MusicOT -> MusicOT]
                  , _chords :: [[Primitive Pitch]]
                  , _ptShape :: Shape
-  --               , _otShape :: Shape
-        --         , _scale :: Scale
                  }
 
-plan = Plan { _rhythms = [n, ronettes]
-            , _patterns = [full, sad]
-            , _chords = house
-            , _ptShape = shape
-            }
+rhythmPlan = Plan { _ttPool = map rhythm [n, ronettes]
+                  , _ptShape = shape
+                  }
 
+patternPlan = Plan { _ttPool = map pattern [full, sad, falling]
+                  , _ptShape = shape
+                  }
 
 data Shape = SLeaf Int | SNode [Shape] deriving Show -- problematic?
--- what if a node contains 2 Vals and 1 Group! This thing is invalid!
+-- what if a node contains 2 Vals and 1 Group?
+-- Ans: shape is just used a skeleton to make prefixTrees,
+-- so it is ok that these trees are somewhat constrained.
+-- (might actually ditch this for just defaultPT as part of plan)
+
 
 sDepth :: Shape -> Int
 sDepth (SLeaf x) = 1
@@ -117,27 +123,41 @@ defaultPT (SLeaf n) = Node id (replicate n $ Leaf id (id))
 defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 -- |                ^ id is default function. doesnt change anything..
 
+
 -- GEN MEANS RANDOM!
 genPT :: StdGen -> Plan -> (OrientedTree a) -> MusicPT
 genPT gen plan oTree =
   let dpt = defaultPT (_ptShape plan)
-      sliceMods = genSliceMods gen dpt oTree
-  in elevatePT sliceMods dpt
+      (sliceTs, gen2) = randomSTs gen (keysAmt dpt) oTree
+      (treeTs, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
+  in  elevateValues treeTs $ elevateKeys sliceTs $ dpt
+
+--
+randomTTs :: StdGen -> Int -> [MusicOT -> MusicOT] -> ([MusicOT -> MusicOT], StdGen)
+randomTTs gen n tts = runState (getRandoms n tts) gen
+-- | gets n random tree transformations from list of tts.
 
 
-genSliceMods gen pt ot =
-  let (depths, gen2) = randomDepths gen (keys pt) ot
+-- PROBLEM: pattern function only works at lower levels.
+-- MANY FUNCtioNS will be like this. only works on groups of vals.
+-- easy to fix this with randomSTSAFE or something like this.
+-- generates randomSTs, but replaces the first with an ST that adresses the
+-- depth that is the next lowest!
+randomSTs :: StdGen -> Int -> OrientedTree a -> ([Slice -> Slice], StdGen)
+randomSTs gen n ot =
+  let (depths, gen2) = randomDepths gen n ot
       (widths, gen3) = randomWidths gen depths ot
-  in zipWith (\d w -> atDepth d [0..w]) depths widths
-
+  in (zipWith (\d w -> atDepth d [0..w]) depths widths, gen3)
+  -- | gets n random slice transformations based on shape of oriented tree.
 
 randomDepths :: StdGen -> Int -> OrientedTree a -> ([Int], StdGen)
 randomDepths gen n ot = runState (getRandoms n (depthRange ot)) gen
+-- | ^ gets n random depths from a given tree.
 
 randomWidths :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
 randomWidths gen depths ot =
   runState (sequence $ map (randomSt . widthRange ot) depths) gen
-
+  -- | ^ gets a random width for each depth given as input.
 
 
 testMT :: OrientedTree Char
@@ -168,40 +188,3 @@ testMT =     Group H [
 
 testOT :: OrientedTree Int
 testOT = Group H [Group V [Val 1, Val 2, Val 3], Group V [Val 4, Val 5]]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-
-chordInsert :: Plan -> StdGen -> MusicPT
-chordInsert plan =
-  let c = _complexity plan
-      chords = _chords plan
-  in Node (getSM ) [
-         Leaf (getSM) (insert $ structured V chords)
-    ]
-
-
-getSM :: StdGen -> Int -> (Slice -> Slice)
-getSM gen d plan = atDepth d [0..(fst $ getRandom (members !! d) gen)]
-
---sizes gen plan = fst $ runState (getRandoms (_otDepth plan) (_members plan)) gen
-
--}
-{-
-genPT :: Plan -> MusicOT -> MusicPT
-genPT plan mtree =
-    let
-    in
-
--}
