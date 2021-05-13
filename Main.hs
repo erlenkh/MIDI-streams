@@ -2,7 +2,7 @@
 import System.Random
 import Composer
 import Structure
-import Transform
+import qualified Transform as T
 import Euterpea
 import Chord
 import qualified Data.List as L
@@ -23,6 +23,9 @@ main = do
 
 nextOtree gen ptPlan otree = applyPT (genPT gen ptPlan otree) otree
 
+inserted = toMT $ insertionsPT chordProgressions
+rhythmed gen = applyPT (genPT gen rhythmPlan inserted) inserted
+pt_random gen =(genPT gen rhythmPlan inserted)
 -- prefix trees: ---------------------------------------------------------------
 
 structured :: Orientation -> [[Primitive Pitch]] -> MusicOT
@@ -99,12 +102,13 @@ patternPlan = Plan { _ttPool = map pattern [full, sad, falling]
                   , _ptShape = shape
                   }
 
+
+-- map applySF [T.invert C Major, T.transpose C Major 2, T.transpose C Major 1]
 data Shape = SLeaf Int | SNode [Shape] deriving Show -- problematic?
 -- what if a node contains 2 Vals and 1 Group?
 -- Ans: shape is just used a skeleton to make prefixTrees,
 -- so it is ok that these trees are somewhat constrained.
 -- (might actually ditch this for just defaultPT as part of plan)
-
 
 sDepth :: Shape -> Int
 sDepth (SLeaf x) = 1
@@ -128,7 +132,7 @@ defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 genPT :: StdGen -> Plan -> (OrientedTree a) -> MusicPT
 genPT gen plan oTree =
   let dpt = defaultPT (_ptShape plan)
-      (sliceTs, gen2) = randomSTs gen (keysAmt dpt) oTree
+      (sliceTs, gen2) = randomDFSTs gen (keysAmt dpt) oTree (measureDepth oTree)
       (treeTs, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
   in  elevateValues treeTs $ elevateKeys sliceTs $ dpt
 
@@ -143,16 +147,37 @@ randomTTs gen n tts = runState (getRandoms n tts) gen
 -- easy to fix this with randomSTSAFE or something like this.
 -- generates randomSTs, but replaces the first with an ST that adresses the
 -- depth that is the next lowest!
+
+
+-- random depth-fixed slice transformations:
+randomDFSTs :: StdGen -> Int -> OrientedTree a -> Int -> ([Slice -> Slice], StdGen)
+randomDFSTs gen n ot depth =
+  let dfst = randomDFST gen ot depth
+      sts = randomSTs' gen (n - 1) ot [0..depth]
+  in (fst dfst : fst sts, snd sts)
+
+-- random depth-fixed slice transformation:
+randomDFST :: StdGen -> OrientedTree a -> Int -> (Slice -> Slice, StdGen)
+randomDFST gen tree depth =
+  let ([width], gen2) = randomWidths gen [depth] tree
+  in (atDepth depth [0..width], gen2)
+
+
+measureDepth tree = (depth tree) - 4
+
 randomSTs :: StdGen -> Int -> OrientedTree a -> ([Slice -> Slice], StdGen)
-randomSTs gen n ot =
-  let (depths, gen2) = randomDepths gen n ot
+randomSTs gen n ot = randomSTs' gen n ot (depthRange ot)
+
+randomSTs' :: StdGen -> Int -> OrientedTree a -> [Int] -> ([Slice -> Slice], StdGen)
+randomSTs' gen n ot depthRange =
+  let (depths, gen2) = randomDepths gen n depthRange
       (widths, gen3) = randomWidths gen depths ot
   in (zipWith (\d w -> atDepth d [0..w]) depths widths, gen3)
   -- | gets n random slice transformations based on shape of oriented tree.
 
-randomDepths :: StdGen -> Int -> OrientedTree a -> ([Int], StdGen)
-randomDepths gen n ot = runState (getRandoms n (depthRange ot)) gen
--- | ^ gets n random depths from a given tree.
+randomDepths :: StdGen -> Int -> [Int] -> ([Int], StdGen)
+randomDepths gen n range = runState (getRandoms n range) gen
+-- | ^ gets n random depths from a given range
 
 randomWidths :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
 randomWidths gen depths ot =
