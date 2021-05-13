@@ -140,10 +140,12 @@ type Pattern = [[Int]]
 
 -- takes a group H of group V and returns a group H of Group Vs:
 pattern :: Pattern -> MusicOT -> MusicOT
+pattern p (Val x) = Val x
 pattern p (Group o chords) =
   Group H $ zipWith (extract) (concat $ repeat p) chords
 
 extract :: [Int] -> MusicOT -> MusicOT
+extract xs (Val x) = Val x
 extract xs (Group o ns) =
   let sel = L.sort xs
   in if length ns > maximum sel then Group V $ map (ns !!) sel
