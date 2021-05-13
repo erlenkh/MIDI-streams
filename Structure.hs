@@ -108,7 +108,7 @@ width (Group o trees) = length (trees)
 
 -- range of depth levels in tree:
 depthRange :: OrientedTree a -> [Int]
-depthRange tree = [0 .. (depth tree) -2] -- -1 bc of Vals, and -1 bc of 0-index
+depthRange tree = [0 .. (depth tree) - 3] -- -1 bc of Vals, and -1 bc of 0-index
 
 -- range of width levels in tree at a given depth:
 widthRange :: OrientedTree a -> Int -> [Int]
@@ -151,7 +151,7 @@ data Choice = Some [Int] | All deriving (Show, Eq)
 type Slice = [Choice]
 
 instance Show (Slice -> Slice) where
-  show st =  "ST" --  show $ st $ smallestDefault [st] (disabled for now)
+  show st =   show $ st $ smallestDefault [st] -- "ST" --
 -- ^ in order to show slice transformation (a function), apply to default slice
 
 -- ---- ---- SLICE CONSTRUCTION ------------------------------------------------
