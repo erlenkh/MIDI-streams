@@ -112,7 +112,7 @@ depthRange tree = [0 .. (depth tree) - 3] -- -1 bc of Vals, and -1 bc of 0-index
 
 -- range of width levels in tree at a given depth:
 widthRange :: OrientedTree a -> Int -> [Int]
-widthRange tree depth = [0 .. minimum $ widthsAtDepth tree depth]
+widthRange tree depth = [0 .. (minimum $ widthsAtDepth tree depth) - 1] -- 0-index
 -- ^ min due to slicing, (and since the width at a depth is mostly constant)
 
 widthsAtDepth :: OrientedTree a -> Int -> [Int]
