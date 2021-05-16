@@ -11,14 +11,21 @@ import Scale
 
 main = do
   gen <- newStdGen
+
+  -- getPlans (random or predefined)
+
+  -- foldically apply each plan. to get final OT.
+
+  -- play it.
+  
   let (cps,gen2) = runState (getRandoms 2 chordProgressions) gen
 --  let (rs, gen3) = runState (getRandoms 2 rhythms) gen2
 --  let (ps, gen4) = runState (getRandoms 2 patterns) gen3
-
   let inserted = toMT $ insertionsPT cps
   let rhythmed = applyPT (genPT gen rhythmPlan inserted) inserted
   let patterned = applyPT (genPT gen patternPlan rhythmed) rhythmed
 
+  putStrLn (show $ genPT gen patternPlan rhythmed)
   playDev 6 $ treeToMusic patterned
 
 nextOtree gen ptPlan otree = applyPT (genPT gen ptPlan otree) otree
@@ -26,6 +33,7 @@ nextOtree gen ptPlan otree = applyPT (genPT gen ptPlan otree) otree
 inserted = toMT $ insertionsPT chordProgressions
 rhythmed gen = applyPT (genPT gen rhythmPlan inserted) inserted
 pt_random gen =(genPT gen rhythmPlan inserted)
+
 -- prefix trees: ---------------------------------------------------------------
 
 structured :: Orientation -> [[Primitive Pitch]] -> MusicOT
@@ -33,6 +41,13 @@ structured o chords = Group H $ map (toGroup o) chords
 
 insertionsPT cs = Node (atDepth 0 [0..1]) [
               Node (atDepth 1 [0..2]) [
+                Leaf (atDepth 2 [0..1]) (insert $ structured V (cs !! 0 ))
+              , Leaf (atDepth 2 [2..3]) (insert $ structured V (cs !! 1))
+              ]
+            ]
+
+insPT cs = Node (atDepth 0 [0]) [
+              Node (atDepth 1 [0..1]) [
                 Leaf (atDepth 2 [0..1]) (insert $ structured V (cs !! 0 ))
               , Leaf (atDepth 2 [2..3]) (insert $ structured V (cs !! 1))
               ]
@@ -50,7 +65,6 @@ nico = [mkc C 3 Major [2,4,6] wn, mkc F 3 Major [2,4,6] wn]
 house = [mkc A 3 Minor [2,4,6] wn, mkc E 3 Minor [2,4,6] wn]
 dreams = [mkc C 3 Major [2,4,6] wn, mkc A 2 Minor [2,4,6] wn]
 strange = [mkc D 3 Major [2,4,6] wn, mkc D 3 Minor [2,4,6] wn]
-
 
 -- basic patterns:
 full, falling, waltz, rising :: Pattern
@@ -90,16 +104,19 @@ getRandom list seed =
 -- general patttern : genPT ::  Plan -> MusicOT -> MusicPT
 
 data Plan = Plan { _ttPool :: [MusicOT -> MusicOT]
-                 , _chords :: [[Primitive Pitch]]
-                 , _ptShape :: Shape
+                  , _ttDepth :: MusicOT -> Int
+                  --   ^ depth at which the tt's should be applied in OT
+                  , _ptShape :: Shape
                  }
 
-rhythmPlan = Plan { _ttPool = map rhythm [n, ronettes]
+rhythmPlan = Plan { _ttPool = map rhythm [n, ronettes, evn 4]
+                  , _ttDepth = \tree -> measureDepth tree + 1
                   , _ptShape = shape
                   }
 
-patternPlan = Plan { _ttPool = map pattern [full, sad, falling]
-                  , _ptShape = shape
+patternPlan = Plan { _ttPool = map pattern [full, rising, falling]
+                  ,  _ttDepth = \tree -> measureDepth tree
+                  ,  _ptShape = shape
                   }
 
 
@@ -129,10 +146,10 @@ defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 
 
 -- GEN MEANS RANDOM!
-genPT :: StdGen -> Plan -> (OrientedTree a) -> MusicPT
+genPT :: StdGen -> Plan -> (MusicOT) -> MusicPT
 genPT gen plan oTree =
   let dpt = defaultPT (_ptShape plan)
-      (sliceTs, gen2) = randomDFSTs gen (keysAmt dpt) oTree (measureDepth oTree)
+      (sliceTs, gen2) = randomDFSTs gen (keysAmt dpt) oTree (_ttDepth plan oTree)
       (treeTs, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
   in  elevateValues treeTs $ elevateKeys sliceTs $ dpt
 
@@ -149,6 +166,9 @@ randomTTs gen n tts = runState (getRandoms n tts) gen
 -- depth that is the next lowest!
 
 
+-- other problem: some prefixtrees dont adress all levels, and thus might result
+-- in a new musicOT with a non-constant depth. This is bad!
+
 -- random depth-fixed slice transformations:
 randomDFSTs :: StdGen -> Int -> OrientedTree a -> Int -> ([Slice -> Slice], StdGen)
 randomDFSTs gen n ot depth =
@@ -161,7 +181,6 @@ randomDFST :: StdGen -> OrientedTree a -> Int -> (Slice -> Slice, StdGen)
 randomDFST gen tree depth =
   let ([width], gen2) = randomWidths gen [depth] tree
   in (atDepth depth [0..width], gen2)
-
 
 measureDepth tree = (depth tree) - 4
 
@@ -183,33 +202,3 @@ randomWidths :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
 randomWidths gen depths ot =
   runState (sequence $ map (randomSt . widthRange ot) depths) gen
   -- | ^ gets a random width for each depth given as input.
-
-
-testMT :: OrientedTree Char
-testMT =     Group H [
-                Group V [
-                  Val 'C',
-                  Val 'A',
-                  Val 'T'
-                ],
-                Group V [
-                  Val 'D',
-                  Val 'O',
-                  Val 'G'
-                ],
-                Group H [
-                  Group H [
-                    Val 'K',
-                    Val 'I',
-                    Val 'L'
-                  ],
-                  Group H [
-                    Val 'L',
-                    Val 'E',
-                    Val 'R'
-                  ]
-                ]
-              ]
-
-testOT :: OrientedTree Int
-testOT = Group H [Group V [Val 1, Val 2, Val 3], Group V [Val 4, Val 5]]
