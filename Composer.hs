@@ -119,6 +119,10 @@ toMT pt = let tis = toTIs pt in applyTIs tis (makeStartingTree tis)
 getSlices :: MusicPT -> [Slice]
 getSlices pt = map slc $ toTIs pt
 
+
+-- GENERATING MUSIC PREFIX TREES -----------------------------------------------
+
+
 -- RHYTHMS AND PATTERNS --------------------------------------------------------
 
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
@@ -141,11 +145,13 @@ type Pattern = [[Int]]
 -- takes a group H of group V and returns a group H of Group Vs:
 pattern :: Pattern -> MusicOT -> MusicOT
 pattern p (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
 pattern p (Group o chords) =
   Group H $ zipWith (extract) (concat $ repeat p) chords
 
 extract :: [Int] -> MusicOT -> MusicOT
 extract xs (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
 extract xs (Group o ns) =
   let sel = L.sort xs
   in if length ns > maximum sel then Group V $ map (ns !!) sel
