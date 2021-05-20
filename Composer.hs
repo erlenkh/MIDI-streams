@@ -219,7 +219,7 @@ defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 -- |                ^ id is default function. doesnt change anything..
 
 -- generates a random PT according to the plan and OT it is to be applied to:
-genPT :: StdGen -> Plan -> (MusicOT) -> (MusicPT, StdGen)
+genPT :: StdGen -> Plan -> MusicOT -> (MusicPT, StdGen)
 genPT gen plan oTree =
   let dpt = defaultPT (_ptShape plan)
       (sliceTs, gen2) = randomDFSTs gen (keysAmt dpt) oTree (_ttDepth plan oTree)
@@ -228,7 +228,7 @@ genPT gen plan oTree =
 
 -- gets the depth at which the measure is at. By definition:
 measureDepth :: MusicOT -> Int
-measureDepth tree = (depth tree) - 4
+measureDepth tree = (height tree) - 3
 
 randomTTs :: StdGen -> Int -> [MusicOT -> MusicOT] -> ([MusicOT -> MusicOT], StdGen)
 randomTTs gen n tts = runState (R.getRandoms n tts) gen

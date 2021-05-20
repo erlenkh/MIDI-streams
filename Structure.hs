@@ -12,13 +12,10 @@ module Structure
 , applySF
 , flatten
 , elevate
-, depth
+, height
 , smallestDefault
 , atDepth
 , applyTT
-, depthRange
-, widthRange
-, widthsAtDepth
 , keysAmt
 , valuesAmt
 , elevateKeys
@@ -101,35 +98,37 @@ enumerate' num (Group o (x:xs)) = (size numGroups, Group o numTrees) where
 
   -- SIZE FUNCTIONS ------------------------------------------------------------
 
-depth :: OrientedTree a -> Int
-depth (Val a) = 1
-depth (Group o trees) = 1 + maximum (map depth trees)
+height :: OrientedTree a -> Int
+height (Val a) = 0
+height (Group o trees) = 1 + maximum (map height trees)
 
-width :: OrientedTree a -> Int
-width (Val a) = 1
-width (Group o trees) = length (trees)
+children :: OrientedTree a -> Int
+children (Val a) = 0
+children (Group o trees) = length (trees)
 
 -- range of depth levels in tree:
 depthRange :: OrientedTree a -> [Int]
-depthRange tree = [0 .. (depth tree) - 3] -- -1 bc of Vals, and -1 bc of 0-index
+depthRange tree = [0 .. (height tree) - 2] --  -1 bc of 0-index
 
--- range of width levels in tree at a given depth:
-widthRange :: OrientedTree a -> Int -> [Int]
-widthRange tree depth = [0 .. (minimum $ widthsAtDepth tree depth) - 1] -- 0-index
--- ^ min due to slicing, (and since the width at a depth is mostly constant)
+-- range of children-indexes in tree at a given depth:
+childRange :: OrientedTree a -> Int -> [Int]
+childRange tree depth = [0 .. (minimum $ childrenAtDepth tree depth) - 1] -- 0-index
+-- ^ min due to slicing, (+ the amt of children at a depth is mostly constant)
 
-widthsAtDepth :: OrientedTree a -> Int -> [Int]
-widthsAtDepth tree depth =
-  map (width . fromJust . getElement tree) (paths depth tree)
+childrenAtDepth :: OrientedTree a -> Int -> [Int]
+childrenAtDepth tree depth =
+    map children (fromJust $ subTrees (replicate depth All) tree)
+--  map (children . fromJust . getSubTree tree) (paths depth tree)
+  -- ^ getElement should never return Nothing,  (paths are from paths function)
 
 randomDepths :: StdGen -> Int -> [Int] -> ([Int], StdGen)
 randomDepths gen n range = runState (R.getRandoms n range) gen
 -- | ^ gets n random depths from a given range
 
-randomWidths :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
-randomWidths gen depths ot =
-  runState (sequence $ map (R.randomSt . widthRange ot) depths) gen
-  -- | ^ gets a random width (within the ot) for each depth given as input.
+randomChildren :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
+randomChildren gen depths ot =
+  runState (sequence $ map (R.randomSt . childRange ot) depths) gen
+  -- | ^ gets a random child (within the ot) for each depth given as input.
 
 -- PATH FUNCTIONS --------------------------------------------------------------
 
@@ -137,20 +136,19 @@ type Path = [Int]
 
 -- paths to all elements at depth d:
 paths :: Int -> OrientedTree a -> [Path]
-paths d tree =
-  let aps = allPaths tree
-  in nub $ map (take (d)) aps -- depth is idx of path.
+paths d tree = nub $ map (take d) (allPaths tree)
+-- ^ depth of a node is (length of path) - 1
 
 allPaths :: OrientedTree a -> [Path]
 allPaths (Val x) = [[]]
 allPaths (Group o trees) =
   concat [map (c:) (allPaths t) | (c,t) <- zip [0 .. ] trees]
 
-getElement :: OrientedTree a -> Path -> Maybe (OrientedTree a)
-getElement (Val a) [x] = Nothing
-getElement tree [] = Just tree
-getElement (Group o elems) (x:xs) =
-  if x > (length elems) - 1 then Nothing else getElement (elems !! x) xs
+getSubTree :: OrientedTree a -> Path -> Maybe (OrientedTree a)
+getSubTree (Val a) [x] = Nothing
+getSubTree tree [] = Just tree
+getSubTree (Group o trees) (x:xs) =
+  if x > (length trees) - 1 then Nothing else getSubTree (trees !! x) xs
 
 -- SLICES ----------------------------------------------------------------------
 
@@ -214,8 +212,8 @@ randomDFSTs gen n ot depth =
 -- random depth-fixed slice transformation:
 randomDFST :: StdGen -> OrientedTree a -> Int -> (Slice -> Slice, StdGen)
 randomDFST gen tree depth =
-  let ([width], gen2) = randomWidths gen [depth] tree
-  in (atDepth depth [0..width], gen2)
+  let ([child], gen2) = randomChildren gen [depth] tree
+  in (atDepth depth [0..child], gen2)
 
 
 randomSTs :: StdGen -> Int -> OrientedTree a -> ([Slice -> Slice], StdGen)
@@ -224,18 +222,25 @@ randomSTs gen n ot = randomSTs' gen n ot (depthRange ot)
 randomSTs' :: StdGen -> Int -> OrientedTree a -> [Int] -> ([Slice -> Slice], StdGen)
 randomSTs' gen n ot depthRange =
   let (depths, gen2) = randomDepths gen n depthRange
-      (widths, gen3) = randomWidths gen depths ot
-  in (zipWith (\d w -> atDepth d [0..w]) depths widths, gen3)
+      (children, gen3) = randomChildren gen depths ot
+  in (zipWith (\d w -> atDepth d [0..w]) depths children, gen3)
   -- | gets n random slice transformations based on shape of oriented tree.
 
 -- ---- ---- ACCESS ORIENTED TREE BY SLICE -------------------------------------
 
-getElements :: Slice -> OrientedTree a -> [OrientedTree a]
-getElements [All] (Group _ ts) = ts
-getElements [Some idxs] (Group _ ts) = map (ts !!) idxs
-getElements (All : slice) (Group _ ts) = concat $ map (getElements slice) ts
-getElements (Some idxs : slice) (Group _ ts) =
-   concat $ map (getElements slice) (map (ts !!) idxs)
+-- gets a Maybe list of all subtrees in a slice.
+subTrees :: Slice -> OrientedTree a -> Maybe [OrientedTree a]
+subTrees _ (Val x) = Nothing
+subTrees [] tree = Just [tree]
+subTrees (c : cs) tree@(Group _ ts) =
+  join $ (fmap concat . sequence . map (subTrees cs)) <$> (subTrees' c tree)
+
+-- gets a Maybe list of all subtrees in a Choice.
+subTrees' :: Choice -> OrientedTree a -> Maybe [OrientedTree a]
+subTrees' _ (Val x) = Nothing
+subTrees' All (Group _ ts) = Just ts
+subTrees' (Some idxs) (Group _ ts) =
+  if maximum idxs > length ts then Nothing else Just $ map (ts !!) idxs
 
 type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 
@@ -243,7 +248,7 @@ type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
 applyTT _ tt (Val x) = Nothing -- Cannot make a choice in a Val (only Groups)
 applyTT slice tt tree@(Group o ts) =
-  if length slice > (depth tree) - 1
+  if length slice > height tree
     then Nothing
     else Just $ applyTT' slice tt tree
 
@@ -297,10 +302,6 @@ getAllValues tree =
   let keys = getAllPaths tree
   in  map fromJust $ map (lookupPT tree) keys
   --  ^ should never be Nothing, since it only looks up paths from getallPaths
-
-depthPT :: PrefixTree v k -> Int
-depthPT (Leaf k v) = 1
-depthPT (Node k trees) = 1 + maximum (map depthPT trees)
 
 keysAmt :: (PrefixTree k v) -> Int
 keysAmt (Leaf k v) = 1
