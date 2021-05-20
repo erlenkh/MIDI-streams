@@ -118,7 +118,6 @@ childRange tree depth = [0 .. (minimum $ childrenAtDepth tree depth) - 1] -- 0-i
 childrenAtDepth :: OrientedTree a -> Int -> [Int]
 childrenAtDepth tree depth =
     map children (fromJust $ subTrees (replicate depth All) tree)
---  map (children . fromJust . getSubTree tree) (paths depth tree)
   -- ^ getElement should never return Nothing,  (paths are from paths function)
 
 randomDepths :: StdGen -> Int -> [Int] -> ([Int], StdGen)
@@ -130,7 +129,6 @@ randomChildren gen depths ot =
   runState (sequence $ map (R.randomSt . childRange ot) depths) gen
   -- | ^ gets a random child (within the ot) for each depth given as input.
 
-
 -- SLICES ----------------------------------------------------------------------
 
 -- TODO: define slicing in terms of paths?
@@ -141,19 +139,14 @@ data Choice = Some [Int] | All deriving (Show, Eq)
 type Slice = [Choice]
 
 instance Show (Slice -> Slice) where
-  show st =   show $ st $ smallestDefault [st] -- "ST" --
+  show st = show $ st $ smallestDefault [st] -- "ST" --
 -- ^ in order to show slice transformation (a function), apply to default slice
 
 -- ---- ---- SLICE TRANSFORMATIONS ---------------------------------------------
 
---crashes if lvl >= length slice (might fix with Maybe)
-atLevel :: Int -> [Int] -> (Slice -> Slice)
-atLevel lvl selection slice =
-  let (first, second) = splitAt lvl (reverse slice)
-  in reverse $ first ++ [Some selection] ++ tail second
-
 -- selection should be a Choice, like in atDepth, problem occurs with getDepth...
 -- ideally this should return a maybe but it is a lot of work just for idealism:
+
 atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
 atDepth lvl selection slice =
   let (first, second) = splitAt lvl slice
