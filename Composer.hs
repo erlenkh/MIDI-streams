@@ -74,8 +74,6 @@ insert new old = new
 mlSD x = toTT $ T.movelastSD C Major x
 ct = toTT . T.cTrans
 
-invTT :: MusicOT -> MusicOT
-invTT = applySF $ T.invert C Major
 
 
   -- rhythms and patterns  -------------------------------------------------------
