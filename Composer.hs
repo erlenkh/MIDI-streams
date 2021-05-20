@@ -50,7 +50,7 @@ valToMusic (Val (Note dur p)) = Prim ((Note dur (p, 75)))
 valToMusic (Val (Rest dur)) = Prim (Rest dur)
 
 
--- GROUP TRANSFORMATIONS: ------------------------------------------------------
+-- TREE TRANSFORMATIONS: ------------------------------------------------------
 type TT = MusicOT -> MusicOT
 
 toTT :: (T.Motif -> T.Motif) -> TT
@@ -67,8 +67,6 @@ insert new old = new
 mlSD x = toTT $ T.movelastSD C Major x
 ct = toTT . T.cTrans
 
-invTT :: MusicOT -> MusicOT
-invTT = applySF $ T.invert C Major
 
 -- SLICE TRANSFORMATIONS -------------------------------------------------------
 
