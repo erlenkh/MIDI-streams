@@ -119,7 +119,8 @@ widthRange tree depth = [0 .. (minimum $ widthsAtDepth tree depth) - 1] -- 0-ind
 -- ^ min due to slicing, (and since the width at a depth is mostly constant)
 
 widthsAtDepth :: OrientedTree a -> Int -> [Int]
-widthsAtDepth tree depth = map (width . getElement tree) (paths depth tree)
+widthsAtDepth tree depth =
+  map (width . fromJust . getElement tree) (paths depth tree)
 
 randomDepths :: StdGen -> Int -> [Int] -> ([Int], StdGen)
 randomDepths gen n range = runState (R.getRandoms n range) gen
@@ -145,12 +146,11 @@ allPaths (Val x) = [[]]
 allPaths (Group o trees) =
   concat [map (c:) (allPaths t) | (c,t) <- zip [0 .. ] trees]
 
--- needs to be with MAYBE:
-getElement :: OrientedTree a -> Path -> OrientedTree a
-getElement (Val a) [x] = error "element does not exist"
-getElement tree [] = tree
-getElement (Group o elems) (x:xs) = getElement (elems !! x) xs
-
+getElement :: OrientedTree a -> Path -> Maybe (OrientedTree a)
+getElement (Val a) [x] = Nothing
+getElement tree [] = Just tree
+getElement (Group o elems) (x:xs) =
+  if x > (length elems) - 1 then Nothing else getElement (elems !! x) xs
 
 -- SLICES ----------------------------------------------------------------------
 
