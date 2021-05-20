@@ -23,12 +23,14 @@ module Structure
 , valuesAmt
 , elevateKeys
 , elevateValues
+, randomDFSTs
 ) where
 
 import Data.List
 import Data.Maybe
+import qualified Random as R
+import System.Random
 import Control.Monad.State
-
 
 -- ORIENTED TREE ---------------------------------------------------------------
 
@@ -110,12 +112,20 @@ depthRange tree = [0 .. (depth tree) - 3] -- -1 bc of Vals, and -1 bc of 0-index
 
 -- range of width levels in tree at a given depth:
 widthRange :: OrientedTree a -> Int -> [Int]
-widthRange tree depth = [0 .. minimum $ widthsAtDepth tree depth]
+widthRange tree depth = [0 .. (minimum $ widthsAtDepth tree depth) - 1] -- 0-index
 -- ^ min due to slicing, (and since the width at a depth is mostly constant)
 
 widthsAtDepth :: OrientedTree a -> Int -> [Int]
 widthsAtDepth tree depth = map (width . getElement tree) (paths depth tree)
 
+randomDepths :: StdGen -> Int -> [Int] -> ([Int], StdGen)
+randomDepths gen n range = runState (R.getRandoms n range) gen
+-- | ^ gets n random depths from a given range
+
+randomWidths :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
+randomWidths gen depths ot =
+  runState (sequence $ map (R.randomSt . widthRange ot) depths) gen
+  -- | ^ gets a random width (within the ot) for each depth given as input.
 
 -- PATH FUNCTIONS --------------------------------------------------------------
 
@@ -152,7 +162,7 @@ instance Show (Slice -> Slice) where
   show st =   show $ st $ smallestDefault [st] -- "ST" --
 -- ^ in order to show slice transformation (a function), apply to default slice
 
--- ---- ---- SLICE CONSTRUCTION ------------------------------------------------
+-- ---- ---- SLICE TRANSFORMATIONS ---------------------------------------------
 
 --crashes if lvl >= length slice (might fix with Maybe)
 atLevel :: Int -> [Int] -> (Slice -> Slice)
@@ -184,6 +194,36 @@ getDepth sTrans = maximum $ findIndices (isSome) $ sTrans $ replicate (666) All
 
 isSome (Some xs) = True
 isSome _  = False
+
+-- ---- ---- RANDOM SLICE TRANSFORMATIONS: -------------------------------------
+
+-- problem: some prefixtrees dont adress all levels, and thus might result
+-- in a new musicOT with a non-constant depth. This is bad!
+
+-- random depth-fixed slice transformations:
+-- results in a pt where all TT are applied at the same given depth.
+randomDFSTs :: StdGen -> Int -> OrientedTree a -> Int -> ([Slice -> Slice], StdGen)
+randomDFSTs gen n ot depth =
+  let dfst = randomDFST gen ot depth
+      sts = randomSTs' gen (n - 1) ot [0..depth]
+  in (fst dfst : fst sts, snd sts)
+
+-- random depth-fixed slice transformation:
+randomDFST :: StdGen -> OrientedTree a -> Int -> (Slice -> Slice, StdGen)
+randomDFST gen tree depth =
+  let ([width], gen2) = randomWidths gen [depth] tree
+  in (atDepth depth [0..width], gen2)
+
+
+randomSTs :: StdGen -> Int -> OrientedTree a -> ([Slice -> Slice], StdGen)
+randomSTs gen n ot = randomSTs' gen n ot (depthRange ot)
+
+randomSTs' :: StdGen -> Int -> OrientedTree a -> [Int] -> ([Slice -> Slice], StdGen)
+randomSTs' gen n ot depthRange =
+  let (depths, gen2) = randomDepths gen n depthRange
+      (widths, gen3) = randomWidths gen depths ot
+  in (zipWith (\d w -> atDepth d [0..w]) depths widths, gen3)
+  -- | gets n random slice transformations based on shape of oriented tree.
 
 -- ---- ---- ACCESS ORIENTED TREE BY SLICE -------------------------------------
 

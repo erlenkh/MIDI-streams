@@ -8,8 +8,6 @@ module Scale
 , Scale
 ) where
 
-  -- TODO: Make scale datatype...
-
 import Euterpea
 import Data.List
 import qualified Data.Map as Map

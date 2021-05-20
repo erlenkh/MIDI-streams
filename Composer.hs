@@ -21,6 +21,11 @@ module Composer
 , Rhythm(..)
 , toMT
 , applyPT
+, Plan (..)
+, Shape (..)
+, sequencePlans
+, measureDepth
+, rhythm'
 )
 where
 
@@ -32,7 +37,9 @@ import Chord
 import qualified Data.List as L
 import qualified Data.Set as S
 import Data.Maybe
-
+import System.Random
+import qualified Random as R
+import Control.Monad.State
 -- MUSIC TREE  ------------------------------------------------------------------
 
 type MusicOT = OrientedTree (Primitive Pitch)
@@ -66,6 +73,75 @@ ro = toTT . T.reorder
 insert new old = new
 mlSD x = toTT $ T.movelastSD C Major x
 ct = toTT . T.cTrans
+
+
+
+  -- rhythms and patterns  -------------------------------------------------------
+
+type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
+--    ^ a rhythm, a series of durations that are looped.
+
+evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
+evn x = replicate x (1/fromIntegral x)
+
+rhythm :: Rhythm -> MusicOT -> MusicOT
+rhythm rm tree =
+  let trees = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
+
+rhythm' :: Rhythm -> MusicOT -> MusicOT
+rhythm' rm tree =
+  let td = totDur tree
+      trees = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration (dur/td)) tree) rm trees
+
+giveDuration :: Dur -> Primitive Pitch -> Primitive Pitch
+giveDuration dur (Note d p) = Note dur p
+
+type Pattern = [[Int]]
+-- ^ a pattern of scale degrees/ chord degrees. Represents a H group og V groups
+
+-- takes a group H of group V and returns a group H of Group Vs:
+pattern :: Pattern -> MusicOT -> MusicOT
+pattern p (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
+pattern p (Group o chords) =
+  Group H $ zipWith (extract) (concat $ repeat p) chords
+
+extract :: [Int] -> MusicOT -> MusicOT
+extract xs (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
+extract xs (Group o ns) =
+  let sel = L.sort xs
+  in if length ns > maximum sel then Group V $ map (ns !!) sel
+     else extract (unique $ init sel ++ [length ns - 1]) (Group o ns)
+
+unique = S.toList . S.fromList
+
+type RPattern = [(Dur, [Int])]
+-- ^ Rhythmic pattern: what notes should be played for each duration.
+
+rp :: Rhythm -> Pattern -> RPattern
+rp r p = zip r (concat $ repeat p)
+
+-- takes in a pattern and a musicTree, and gives out a musictree with the
+-- pitches from the OG tree in the form of the pattern:
+rpattern :: RPattern -> MusicOT -> MusicOT
+rpattern pat tree = rpattern' pat (T.getPitches $ flatten tree)
+
+rpattern' :: RPattern -> [Pitch] -> MusicOT
+rpattern' pat pitches =
+  let v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
+  -- ^ function that creates a Vertical group from one pattern-element
+  in Group H $ map v pat
+
+hDurs :: MusicOT -> Rhythm
+hDurs tree = fmap T.getDur $ flatten tree
+
+totDur :: MusicOT -> Dur
+totDur (Group H trees) = sum $ map totDur trees
+totDur (Group V trees) = maximum $ map totDur trees
+totDur (Val x) = T.getDur x
 
 
 -- SLICE TRANSFORMATIONS -------------------------------------------------------
@@ -117,59 +193,56 @@ toMT pt = let tis = toTIs pt in applyTIs tis (makeStartingTree tis)
 getSlices :: MusicPT -> [Slice]
 getSlices pt = map slc $ toTIs pt
 
--- RHYTHMS AND PATTERNS --------------------------------------------------------
+-- GENERATING MUSIC PTS : ------------------------------------------------------
 
-type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
---    ^ a rhythm, a series of durations that are looped.
+-- the meta model for each PT:
+data Plan = Plan { _ttPool :: [MusicOT -> MusicOT]
+                  -- ^ the list of possible tree transformations
+                  , _ttDepth :: MusicOT -> Int
+                  --   ^ depth at which the tt's should be applied in OT
+                  , _ptShape :: Shape
+                 }
 
-evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
-evn x = replicate x (1/fromIntegral x)
+-- the shape of each PT
+data Shape = SLeaf Int | SNode [Shape] deriving Show -- problematic?
+-- what if a node contains 2 Vals and 1 Group?
+-- Ans: shape is just used a skeleton to make prefixTrees,
+-- so it is ok that these trees are somewhat constrained.
+-- (might actually ditch this for just defaultPT as part of plan)
 
-rhythm :: Rhythm -> MusicOT -> MusicOT
-rhythm rm tree =
-  let trees = (replicate (length rm) tree)
-  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
 
-giveDuration :: Dur -> Primitive Pitch -> Primitive Pitch
-giveDuration dur (Note d p) = Note dur p
+defaultPT :: Shape -> MusicPT
+defaultPT (SLeaf n) = Node id (replicate n $ Leaf id (id))
+defaultPT (SNode shapes) = Node id (map defaultPT shapes)
+-- |                ^ id is default function. doesnt change anything..
 
-type Pattern = [[Int]]
--- ^ a pattern of scale degrees/ chord degrees. Represents a H group og V groups
+-- generates a random PT according to the plan and OT it is to be applied to:
+genPT :: StdGen -> Plan -> (MusicOT) -> (MusicPT, StdGen)
+genPT gen plan oTree =
+  let dpt = defaultPT (_ptShape plan)
+      (sliceTs, gen2) = randomDFSTs gen (keysAmt dpt) oTree (_ttDepth plan oTree)
+      (treeTs, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
+  in  (elevateValues treeTs $ elevateKeys sliceTs $ dpt, gen3)
 
--- takes a group H of group V and returns a group H of Group Vs:
-pattern :: Pattern -> MusicOT -> MusicOT
-pattern p (Val x) = Val x
-pattern p (Group o chords) =
-  Group H $ zipWith (extract) (concat $ repeat p) chords
+-- gets the depth at which the measure is at. By definition:
+measureDepth :: MusicOT -> Int
+measureDepth tree = (depth tree) - 4
 
-extract :: [Int] -> MusicOT -> MusicOT
-extract xs (Val x) = Val x
-extract xs (Group o ns) =
-  let sel = L.sort xs
-  in if length ns > maximum sel then Group V $ map (ns !!) sel
-     else extract (unique $ init sel ++ [length ns - 1]) (Group o ns)
+randomTTs :: StdGen -> Int -> [MusicOT -> MusicOT] -> ([MusicOT -> MusicOT], StdGen)
+randomTTs gen n tts = runState (R.getRandoms n tts) gen
+-- | gets n random tree transformations from list of tts.
 
-unique = S.toList . S.fromList
+-- GENERATING SEQUENCES OF PTS -------------------------------------------------
 
-type RPattern = [(Dur, [Int])]
--- ^ Rhythmic pattern: what notes should be played for each duration.
+sequencePlans :: StdGen -> [Plan] -> MusicOT -> (MusicOT, StdGen)
+sequencePlans gen plans startTree =
+  foldl (\(tree, gen) plan -> nextOT gen plan tree) (startTree, gen) plans
 
-rp :: Rhythm -> Pattern -> RPattern
-rp r p = zip r (concat $ repeat p)
+nextOT :: StdGen -> Plan -> MusicOT -> (MusicOT, StdGen)
+nextOT gen ptPlan otree =
+  let (newPT, gen2) = genPT gen ptPlan otree
+  in (applyPT newPT otree, gen2)
 
--- takes in a pattern and a musicTree, and gives out a musictree with the
--- pitches from the OG tree in the form of the pattern:
-rpattern :: RPattern -> MusicOT -> MusicOT
-rpattern pat tree = rpattern' pat (T.getPitches $ flatten tree)
-
-rpattern' :: RPattern -> [Pitch] -> MusicOT
-rpattern' pat pitches =
-  let v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
-  -- ^ function that creates a Vertical group from one pattern-element
-  in Group H $ map v pat
-
-hDurs :: MusicOT -> Rhythm
-hDurs tree = fmap T.getDur $ flatten tree
 
 -- TESTING ZONE: ---------------------------------------------------------------
 
