@@ -130,25 +130,6 @@ randomChildren gen depths ot =
   runState (sequence $ map (R.randomSt . childRange ot) depths) gen
   -- | ^ gets a random child (within the ot) for each depth given as input.
 
--- PATH FUNCTIONS --------------------------------------------------------------
-
-type Path = [Int]
-
--- paths to all elements at depth d:
-paths :: Int -> OrientedTree a -> [Path]
-paths d tree = nub $ map (take d) (allPaths tree)
--- ^ depth of a node is (length of path) - 1
-
-allPaths :: OrientedTree a -> [Path]
-allPaths (Val x) = [[]]
-allPaths (Group o trees) =
-  concat [map (c:) (allPaths t) | (c,t) <- zip [0 .. ] trees]
-
-getSubTree :: OrientedTree a -> Path -> Maybe (OrientedTree a)
-getSubTree (Val a) [x] = Nothing
-getSubTree tree [] = Just tree
-getSubTree (Group o trees) (x:xs) =
-  if x > (length trees) - 1 then Nothing else getSubTree (trees !! x) xs
 
 -- SLICES ----------------------------------------------------------------------
 
@@ -244,7 +225,7 @@ subTrees' (Some idxs) (Group _ ts) =
 
 type TreeTransformation a = (OrientedTree a -> OrientedTree a)
 
--- | slices should not be able to be longer than depth of tree - 1:
+-- | slices should not be able to be longer than height of tree
 applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
 applyTT _ tt (Val x) = Nothing -- Cannot make a choice in a Val (only Groups)
 applyTT slice tt tree@(Group o ts) =
