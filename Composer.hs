@@ -222,7 +222,7 @@ genPT gen plan oTree =
   let dpt = defaultPT (_ptShape plan)
       (sliceTs, gen2) = randomDFSTs gen (keysAmt dpt) oTree (_ttDepth plan oTree)
       (treeTs, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
-  in  (elevateValues treeTs $ elevateKeys sliceTs $ dpt, gen3)
+  in  (elevateValues treeTs $ elevate sliceTs $ dpt, gen3)
 
 -- gets the depth at which the measure is at. By definition:
 measureDepth :: MusicOT -> Int
