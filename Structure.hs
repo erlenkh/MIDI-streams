@@ -9,7 +9,7 @@ module Structure
 , toGroup
 , getAllPaths
 , getAllValues
-, applySF
+--, applySF
 , flatten
 , elevate
 , height
@@ -19,7 +19,7 @@ module Structure
 , keysAmt
 , valuesAmt
 , elevateKeys
-, elevateValues
+--, elevateValues
 , randomDFSTs
 ) where
 
@@ -74,23 +74,7 @@ flatten :: OrientedTree a -> [a]
 flatten (Val x) = [x]
 flatten (Group _ vals) = concat $ map flatten vals
 
-elevate :: [a] -> OrientedTree a -> OrientedTree a
-elevate flat tree = fmap ff $ enumerate tree where
-  ff (idx, value) = if idx < length flat then flat !! idx else value
 
---flattens tree, applies a sequential function, and elevates to original form
-applySF :: ([a] -> [a]) -> OrientedTree a -> OrientedTree a
-applySF sf tree = elevate (sf $ flatten tree) tree
-
--- enumerates each Val from left to right
-enumerate :: OrientedTree a -> OrientedTree (Int, a)
-enumerate = snd . enumerate' 0
-
--- maybe make this only enumerate what isS in the slice?
-enumerate' :: Int -> OrientedTree a -> (Int, OrientedTree (Int, a))
-enumerate' num (Val x) = (1, Val (num, x))
-enumerate' num (Group o nodes) = (sum $ map fst ens, Group o (map snd ens))
-  where ens = enumeratedNodes num enumerate' nodes
 
 
   -- SIZE FUNCTIONS ------------------------------------------------------------
@@ -246,18 +230,16 @@ replaceVal new old = new
 
 data PrefixTree v k = Leaf k v | Node k [PrefixTree v k] deriving (Show)
 
-newtype PrefixTree' k v = PT {unwrap :: PrefixTree v k}
+newtype PrefixTree' k v = PT' {pt :: PrefixTree v k}
 
 instance Functor (PrefixTree v) where
   fmap f (Leaf k v) = Leaf (f k) v
   fmap f (Node k trees) = Node (f k) (map (fmap f) trees)
 
 instance Functor (PrefixTree' k) where
-  fmap f = PT . valMap f . unwrap
+  fmap f (PT' (Leaf k v)) = PT' $ Leaf k (f v)
+  fmap f (PT' (Node k trees)) = PT' $ Node k (map (pt . fmap f . PT') trees)
 
-valMap :: (v -> w) -> PrefixTree v k -> PrefixTree w k
-valMap f (Leaf k v) = Leaf k (f v)
-valMap f (Node k trees) = Node k (map (valMap f) trees)
 
 lookupPT :: (Eq k) => PrefixTree v k -> [k] ->  Maybe v
 lookupPT  _ [] = Nothing
@@ -303,19 +285,21 @@ enumerateKeys' num (Node k (x:xs)) =
     ens = enumeratedNodes (num + 1) enumerateKeys' (x:xs)
 
 elevateValues :: [v] -> PrefixTree v k -> PrefixTree v k
-elevateValues flat tree = valMap ff $ enumerateValues tree where
+elevateValues flat = pt . fmap ff . PT' . enumerateValues where
   ff (idx, value) = if idx < length flat then flat !! idx else value
 
 enumerateValues :: PrefixTree v k -> PrefixTree (Int, v) k
-enumerateValues = snd . enumerateValues' 0
+enumerateValues = pt . snd . enumerateValues' 0 . PT'
 
-enumerateValues' :: Int -> PrefixTree v k -> (Int, PrefixTree (Int,v) k)
-enumerateValues' num (Leaf k v) = (1, Leaf k (num,v))
-enumerateValues' num (Node k (x:xs)) =
-  ((sum . map fst) ens, Node k (map snd ens)) where
-    ens = enumeratedNodes num enumerateValues' (x:xs)
+enumerateValues' :: Int -> PrefixTree' k v -> (Int, PrefixTree' k (Int,v))
+enumerateValues' num (PT' (Leaf k v)) = (1, PT' (Leaf k (num,v)))
+enumerateValues' num (PT' (Node k ts)) =
+  ((sum . map fst) ens, PT' (Node k (map (pt . snd) ens))) where
+    ens = enumeratedNodes num enumerateValues' (map PT' ts)
 
---enumeratedNodes :: Int -> (Int -> f x -> (Int, f (Int, x))) -> [f x] -> [(Int, f (Int,x))]
+enumeratedNodes
+  :: (Functor f)
+  => Int -> (Int -> f x -> (Int, f (Int, x))) -> [f x] -> [(Int, f (Int,x))]
 enumeratedNodes sn ef (x:xs) = foldl ff [(ef sn x)] xs
   where ff prev x = prev ++ [ef (sn + (sum . map fst) prev) x]
 -- ^ function takes a starting number, enumartion function, and a list of functors
@@ -323,8 +307,53 @@ enumeratedNodes sn ef (x:xs) = foldl ff [(ef sn x)] xs
 -- and the second of the tuple is the enumerated node.
 
 
+elevate :: (Functor f, Enumeratable f) => [a] -> f a -> f a
+elevate list = fmap ff . enumerate where
+  ff (idx, value) = if idx < length list then list !! idx else value
 
+enumerate :: Functor f => Enumeratable f => f a -> f (Int, a)
+enumerate = snd . enumerate' 0
 
+class Enumeratable e where
+  enumerate' :: Int -> e a -> (Int, e (Int, a))
+
+instance Enumeratable (OrientedTree) where
+  enumerate' n (Val x) = (1, Val (n, x))
+  enumerate' n (Group o ts) = (sum $ map fst ens, Group o (map snd ens))
+    where ens = enumeratedNodes n enumerate' ts
+
+instance Enumeratable (PrefixTree v) where
+  enumerate' n (Leaf k v) = (1, Leaf (n, k) v)
+  enumerate' n (Node k ts) =
+    let ens = enumeratedNodes (n + 1) enumerate' ts
+    in ((sum $ map fst ens) + 1, Node (n, k) (map snd ens))
+
+instance Enumeratable (PrefixTree' k) where
+  enumerate' n (PT' (Leaf k v)) = (1, PT' $ Leaf k (n,v))
+  enumerate' n (PT' (Node k ts)) =
+    let ens = enumeratedNodes n enumerateValues' (map PT' ts)
+    in ((sum . map fst) ens, PT' (Node k (map (pt . snd) ens)))
+
+{-
+
+elevate :: [a] -> OrientedTree a -> OrientedTree a
+elevate flat tree = fmap ff $ enumerate tree where
+  ff (idx, value) = if idx < length flat then flat !! idx else value
+
+--flattens tree, applies a sequential function, and elevates to original form
+applySF :: ([a] -> [a]) -> OrientedTree a -> OrientedTree a
+applySF sf tree = elevate (sf $ flatten tree) tree
+
+-- enumerates each Val from left to right
+enumerate :: OrientedTree a -> OrientedTree (Int, a)
+enumerate = snd . enumerate' 0
+
+-- maybe make this only enumerate what isS in the slice?
+enumerate' :: Int -> OrientedTree a -> (Int, OrientedTree (Int, a))
+enumerate' num (Val x) = (1, Val (num, x))
+enumerate' num (Group o nodes) = (sum $ map fst ens, Group o (map snd ens))
+  where ens = enumeratedNodes num enumerate' nodes
+-}
 
 
 
