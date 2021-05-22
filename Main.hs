@@ -1,14 +1,17 @@
 {-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
-import System.Random
-import Composer
+
+import MusicTrees
 import Structure
-import qualified Transform as T
-import Euterpea
+import Transform
 import Chord
-import qualified Data.List as L
-import Control.Monad.State
 import Scale
+import Generation
 import qualified Random as R
+
+import Euterpea
+import System.Random
+import Control.Monad.State
+import qualified Data.List as L
 
 main = do
   gen <- newStdGen
@@ -24,7 +27,7 @@ main = do
   let (final, gen3) = sequencePlans gen2 ptPlans chordsTree
   -- ^ the final tree, with all pts applied to it.
 
-  playDev 6 $ treeToMusic final
+  playDev 6 $ toMusic final
 
 -- generative material: --------------------------------------------------------
 

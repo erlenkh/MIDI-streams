@@ -19,13 +19,11 @@ module Structure
 , keysAmt
 , valuesAmt
 , elevateValues
-, randomDFSTs
+, childrenAtDepth
 ) where
 
 import Data.List
 import Data.Maybe
-import qualified Random as R
-import System.Random
 import Control.Monad.State
 
 -- ORIENTED TREE ---------------------------------------------------------------
@@ -88,28 +86,10 @@ children :: OrientedTree a -> Int
 children (Val a) = 0
 children (Group o trees) = length (trees)
 
--- range of depth levels in tree:
-depthRange :: OrientedTree a -> [Int]
-depthRange tree = [0 .. (height tree) - 2] --  -1 bc of 0-index
-
--- range of children-indexes in tree at a given depth:
-childRange :: OrientedTree a -> Int -> [Int]
-childRange tree depth = [0 .. (minimum $ childrenAtDepth tree depth) - 1] -- 0-index
--- ^ min due to slicing, (+ the amt of children at a depth is mostly constant)
-
 childrenAtDepth :: OrientedTree a -> Int -> [Int]
 childrenAtDepth tree depth =
     map children (fromJust $ subTrees (replicate depth All) tree)
   -- ^ getElement should never return Nothing,  (paths are from paths function)
-
-randomDepths :: StdGen -> Int -> [Int] -> ([Int], StdGen)
-randomDepths gen n range = runState (R.getRandoms n range) gen
--- | ^ gets n random depths from a given range
-
-randomChildren :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
-randomChildren gen depths ot =
-  runState (sequence $ map (R.randomSt . childRange ot) depths) gen
-  -- | ^ gets a random child (within the ot) for each depth given as input.
 
 -- SLICES ----------------------------------------------------------------------
 
@@ -140,47 +120,22 @@ atDepth' lvl choice slice =
   in first ++ [choice] ++ tail second
 
 smallestDefault :: [Slice -> Slice] -> Slice
-smallestDefault sts = replicate ((getMaxDepth sts) + 1) All
+smallestDefault sts = replicate ((getDeepest sts) + 1) All
 
-getMaxDepth :: [Slice -> Slice] -> Int
-getMaxDepth sts = maximum $ map getDepth sts
+getDeepest :: [Slice -> Slice] -> Int
+getDeepest sts = maximum $ map getDepth sts
 
 -- a piece cannot have more that 666 hierarchical levels, should be generalized
 getDepth :: (Slice -> Slice) -> Int
 getDepth sTrans = maximum $ findIndices (isSome) $ sTrans $ replicate (666) All
 
-isSome (Some xs) = True
+-- only works with sts that only transform one depth.
+getDepth' :: (Slice -> Slice) -> Int
+getDepth' st = fromJust . findIndex (isSome) . st $ repeat All
+
+isSome (Some _) = True
 isSome _  = False
 
--- ---- ---- RANDOM SLICE TRANSFORMATIONS: -------------------------------------
-
--- problem: some prefixtrees dont adress all levels, and thus might result
--- in a new musicOT with a non-constant depth. This is bad!
-
--- random depth-fixed slice transformations:
--- results in a pt where all TT are applied at the same given depth.
-randomDFSTs :: StdGen -> Int -> OrientedTree a -> Int -> ([Slice -> Slice], StdGen)
-randomDFSTs gen n ot depth =
-  let dfst = randomDFST gen ot depth
-      sts = randomSTs' gen (n - 1) ot [0..depth]
-  in (fst dfst : fst sts, snd sts)
-
--- random depth-fixed slice transformation:
-randomDFST :: StdGen -> OrientedTree a -> Int -> (Slice -> Slice, StdGen)
-randomDFST gen tree depth =
-  let ([child], gen2) = randomChildren gen [depth] tree
-  in (atDepth depth [0..child], gen2)
-
-
-randomSTs :: StdGen -> Int -> OrientedTree a -> ([Slice -> Slice], StdGen)
-randomSTs gen n ot = randomSTs' gen n ot (depthRange ot)
-
-randomSTs' :: StdGen -> Int -> OrientedTree a -> [Int] -> ([Slice -> Slice], StdGen)
-randomSTs' gen n ot depthRange =
-  let (depths, gen2) = randomDepths gen n depthRange
-      (children, gen3) = randomChildren gen depths ot
-  in (zipWith (\d w -> atDepth d [0..w]) depths children, gen3)
-  -- | gets n random slice transformations based on shape of oriented tree.
 
 -- ---- ---- ACCESS ORIENTED TREE BY SLICE -------------------------------------
 
@@ -256,11 +211,9 @@ getAllPaths (Leaf k v) = [[k]]
 getAllPaths (Node k trees) =
   concat [map (k:) (getAllPaths t) | (t) <- trees]
 
-getAllValues :: (Eq k) => PrefixTree v k -> [v]
-getAllValues tree =
-  let keys = getAllPaths tree
-  in  map fromJust $ map (lookupPT tree) keys
-  --  ^ should never be Nothing, since it only looks up paths from getallPaths
+getAllValues :: PrefixTree v k -> [v]
+getAllValues (Leaf k v) = [v]
+getAllValues (Node k pts) = concat $ map getAllValues pts
 
 keysAmt :: (PrefixTree k v) -> Int
 keysAmt (Leaf k v) = 1
@@ -273,38 +226,37 @@ valuesAmt (Node k trees) =  sum $ map valuesAmt trees
 elevateValues :: [v] -> PrefixTree v k -> PrefixTree v k
 elevateValues list  = pt . (elevate list) . PT'
 
-elevate :: (Functor f, Enumeratable f) => [a] -> f a -> f a
+elevate :: (Functor f, Enumerable f) => [a] -> f a -> f a
 elevate list = fmap ff . enumerate where
   ff (idx, value) = if idx < length list then list !! idx else value
 
-enumerate :: Functor f => Enumeratable f => f a -> f (Int, a)
+enumerate :: Functor f => Enumerable f => f a -> f (Int, a)
 enumerate = snd . enumerate' 0
 
-class Enumeratable e where
+class Enumerable e where
   enumerate' :: Int -> e a -> (Int, e (Int, a))
 
-instance Enumeratable (OrientedTree) where
+instance Enumerable (OrientedTree) where
   enumerate' n (Val x) = (1, Val (n, x))
   enumerate' n (Group o ts) = (sum sizes, Group o enodes)
-    where (sizes, enodes) = enumerateNodes n ts
+    where (sizes, enodes) = enumerateSubTrees n ts
 
-instance Enumeratable (PrefixTree v) where
+instance Enumerable (PrefixTree v) where
   enumerate' n (Leaf k v) = (1, Leaf (n, k) v)
   enumerate' n (Node k ts) = ((sum sizes) + 1, Node (n, k) enodes)
-    where (sizes, enodes) = enumerateNodes (n + 1) ts
+    where (sizes, enodes) = enumerateSubTrees (n + 1) ts
 
-instance Enumeratable (PrefixTree' k) where
+instance Enumerable (PrefixTree' k) where
   enumerate' n (PT' (Leaf k v)) = (1, PT' $ Leaf k (n,v))
   enumerate' n (PT' (Node k ts)) = (sum sizes, PT' $ Node k (map pt enodes))
-    where (sizes, enodes) = enumerateNodes n (map PT' ts)
+    where (sizes, enodes) = enumerateSubTrees n (map PT' ts)
 
 -- general way to enumerate a list of enumeratable nodes:
-enumerateNodes :: Enumeratable e => Int -> [e x] -> ([Int], [e (Int,x)])
-enumerateNodes startSize (x:xs) =
+enumerateSubTrees :: Enumerable e => Int -> [e x] -> ([Int], [e (Int,x)])
+enumerateSubTrees startSize (x:xs) =
   let totalsize = (sum . map fst)
       ff prev x = prev ++ [enumerate' (startSize + totalsize prev) x]
   in unzip $ foldl ff [enumerate' startSize x] xs
-
 
 -- TESTING ---------------------------------------------------------------------
 

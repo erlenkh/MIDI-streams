@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
 module Transform(
   Motif
 , Transform.transpose
@@ -18,12 +19,118 @@ module Transform(
 , Order (..)
 , fit
 , getPitches
+, evn
+, Transform.insert
+, rhythm
+, rhythm'
+, pattern
+, Pattern(..)
+, Rhythm(..)
+, inv
+, rev
+, transp
+, strong
+, weak
+, ro
 ) where
 
-import Euterpea
 import Scale
+import MusicTrees
+import Structure
+
+import Euterpea
 import Data.List
 import Data.Maybe
+import qualified Data.Set as S
+
+-- TREE TRANSFORMATIONS: ------------------------------------------------------
+type TT = MusicOT -> MusicOT
+
+instance Show (MusicOT -> MusicOT) where
+  show tt = "TT" -- cannot show a function, so just show "TT" instead
+
+toTT :: (Motif -> Motif) -> TT
+toTT f = applySF f
+
+--example gts, must be generalized:
+inv = toTT $ Transform.invert C Major
+rev  = toTT $ Transform.reverse
+transp x = toTT $ Transform.transpose C Major x
+strong = toTT $ strongCadence C Major
+weak = toTT $ weakCadence C Major
+ro = toTT . reorder
+insert new old = new
+mlSD x = toTT $ movelastSD C Major x
+ct = toTT . cTrans
+
+  -- rhythms and patterns  -------------------------------------------------------
+
+type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
+--    ^ a rhythm, a series of durations that are looped.
+
+evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
+evn x = replicate x (1/fromIntegral x)
+
+rhythm :: Rhythm -> MusicOT -> MusicOT
+rhythm rm tree =
+  let trees = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
+
+rhythm' :: Rhythm -> MusicOT -> MusicOT
+rhythm' rm tree =
+  let td = totDur tree
+      trees = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration (dur/td)) tree) rm trees
+
+giveDuration :: Dur -> Primitive Pitch -> Primitive Pitch
+giveDuration dur (Note d p) = Note dur p
+
+type Pattern = [[Int]]
+-- ^ a pattern of scale degrees/ chord degrees. Represents a H group og V groups
+
+-- takes a group H of group V and returns a group H of Group Vs:
+pattern :: Pattern -> MusicOT -> MusicOT
+pattern p (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
+pattern p (Group o chords) =
+  Group H $ zipWith (extract) (concat $ repeat p) chords
+
+extract :: [Int] -> MusicOT -> MusicOT
+extract xs (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
+extract xs (Group o ns) =
+  let sel = sort xs
+  in if length ns > maximum sel then Group V $ map (ns !!) sel
+     else extract (unique $ init sel ++ [length ns - 1]) (Group o ns)
+
+unique = S.toList . S.fromList
+
+type RPattern = [(Dur, [Int])]
+-- ^ Rhythmic pattern: what notes should be played for each duration.
+
+rp :: Rhythm -> Pattern -> RPattern
+rp r p = zip r (concat $ repeat p)
+
+-- takes in a pattern and a musicTree, and gives out a musictree with the
+-- pitches from the OG tree in the form of the pattern:
+rpattern :: RPattern -> MusicOT -> MusicOT
+rpattern pat tree = rpattern' pat (getPitches $ flatten tree)
+
+rpattern' :: RPattern -> [Pitch] -> MusicOT
+rpattern' pat pitches =
+  let v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
+  -- ^ function that creates a Vertical group from one pattern-element
+  in Group H $ map v pat
+
+hDurs :: MusicOT -> Rhythm
+hDurs tree = fmap getDur $ flatten tree
+
+totDur :: MusicOT -> Dur
+totDur (Group H trees) = sum $ map totDur trees
+totDur (Group V trees) = maximum $ map totDur trees
+totDur (Val x) = getDur x
+
+
 
 -- MOTIF TRANSFORMATION IN SCALE CONTEXT --------------------------------------
 

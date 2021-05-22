@@ -4,8 +4,10 @@ module Chord(
 , getChord
 ) where
 
-import Euterpea
 import Scale
+import MusicTrees
+
+import Euterpea
 import Data.List
 
 -- a Chord consists of a root note and the pitches it is made of (incl. root)
