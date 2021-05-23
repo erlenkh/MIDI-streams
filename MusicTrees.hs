@@ -4,12 +4,8 @@ module MusicTrees
 ( MusicOT (..)
 , MusicPT(..)
 , toMusic
-, atPhrases
-, atMeasures
-, atPeriods
 , toMT
 , applyPT
-
 )
 where
 
@@ -39,15 +35,6 @@ toMusic (Group V trees) = chord $ map toMusic trees
 valToMusic :: MusicOT -> Music (Pitch, Volume)
 valToMusic (Val (Note dur p)) = Prim ((Note dur (p, 75)))
 valToMusic (Val (Rest dur)) = Prim (Rest dur)
-
--- SLICE TRANSFORMATIONS -------------------------------------------------------
-
--- some simple short hands..
-
-atPeriods  = atDepth 0
-atPhrases = atDepth 1
-atMeasures = atDepth 2
-atChords = atDepth 3
 
 -- MUSIC PREFIX-TREE -----------------------------------------------------------
 

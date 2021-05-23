@@ -1,31 +1,16 @@
 {-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
 module Transform(
-  Motif
-, Transform.transpose
-, Transform.reverse
-, Transform.fullReverse
-, Transform.invert
-, Transform.replacePitch
-, Transform.givePitches
-, Transform.giveRhythm
-, Transform.strongCadence
-, Transform.weakCadence
-, Transform.replaceDurations
-, Transform.replaceDuration
-, Transform.movelastSD
-, Transform.cTrans
-, getDur
+  getDur
 , reorder
 , Order (..)
-, fit
 , getPitches
 , evn
-, Transform.insert
 , rhythm
 , rhythm'
 , pattern
 , Pattern(..)
 , Rhythm(..)
+, Transform.insert
 , inv
 , rev
 , transp
@@ -129,7 +114,6 @@ totDur :: MusicOT -> Dur
 totDur (Group H trees) = sum $ map totDur trees
 totDur (Group V trees) = maximum $ map totDur trees
 totDur (Val x) = getDur x
-
 
 
 -- MOTIF TRANSFORMATION IN SCALE CONTEXT --------------------------------------

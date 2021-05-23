@@ -1,5 +1,5 @@
-module Chord(
-  Chord(..)
+module Chord
+( Chord(..)
 , getTriad
 , getChord
 ) where

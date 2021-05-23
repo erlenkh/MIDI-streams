@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
-
 module Structure
 ( OrientedTree (..)
 , Orientation (..)

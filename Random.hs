@@ -1,9 +1,10 @@
-module Random (getRandoms, randomSt) where
+module Random
+( getRandoms
+, randomSt
+) where
 
 import Control.Monad.State
 import System.Random
-
--- RANDOM: ---------------------------------------------------------------------
 
 getRandoms :: Int -> [a] -> State StdGen [a]
 getRandoms x list = sequence $ replicate x (randomSt list)
