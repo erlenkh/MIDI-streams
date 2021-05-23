@@ -74,7 +74,6 @@ flatten (Group _ vals) = concat $ map flatten vals
 applySF :: ([a] -> [a]) -> OrientedTree a -> OrientedTree a
 applySF sf tree = elevate (sf $ flatten tree) tree
 
-
   -- SIZE FUNCTIONS ------------------------------------------------------------
 
 height :: OrientedTree a -> Int
@@ -134,7 +133,6 @@ getDepth' st = fromJust . findIndex (isSome) . st $ repeat All
 
 isSome (Some _) = True
 isSome _  = False
-
 
 -- ---- ---- ACCESS ORIENTED TREE BY SLICE -------------------------------------
 
@@ -224,6 +222,8 @@ valuesAmt (Node k trees) =  sum $ map valuesAmt trees
 
 elevateValues :: [v] -> PrefixTree v k -> PrefixTree v k
 elevateValues list  = pt . (elevate list) . PT'
+
+-- ELEVATION: ------------------------------------------------------------------
 
 elevate :: (Functor f, Enumerable f) => [a] -> f a -> f a
 elevate list = fmap ff . enumerate where
