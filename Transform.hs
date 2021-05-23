@@ -21,7 +21,7 @@ module Transform(
 
 import Scale
 import MusicTrees
-import Structure
+import Trees
 
 import Euterpea
 import Data.List

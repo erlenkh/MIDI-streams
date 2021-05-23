@@ -3,7 +3,7 @@ module Example
 ) where
 
 import MusicTrees
-import Structure
+import Trees
 import Transform
 import Chord
 import Scale

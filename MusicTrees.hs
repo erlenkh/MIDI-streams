@@ -9,7 +9,7 @@ module MusicTrees
 )
 where
 
-import Structure
+import Trees
 
 import Euterpea
 import qualified Data.List as L

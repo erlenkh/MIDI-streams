@@ -6,7 +6,7 @@ module Generation
 ) where
 
 import MusicTrees
-import Structure
+import Trees
 import qualified Random as R
 
 import Control.Monad.State
