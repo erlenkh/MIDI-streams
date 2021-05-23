@@ -109,9 +109,9 @@ instance Show (Slice -> Slice) where
 -- ideally this should return a maybe but it is a lot of work just for idealism:
 
 atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
-atDepth lvl selection slice =
-  let (first, second) = splitAt lvl slice
-  in first ++ [Some selection] ++ tail second
+atDepth depth selection slice =
+  let (a, b) = splitAt depth slice
+  in a [Some selection] ++ tail b
 
 atDepth' :: Int -> Choice -> (Slice -> Slice) -- is used by partial application
 atDepth' lvl choice slice =
