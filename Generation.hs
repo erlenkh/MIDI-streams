@@ -36,11 +36,11 @@ defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 
 -- generates a random PT according to the plan and OT it is to be applied to:
 genPT :: StdGen -> Plan -> MusicOT -> (MusicPT, StdGen)
-genPT gen plan oTree =
+genPT gen plan ot =
   let dpt = defaultPT (_ptShape plan)
-      (sliceTs, gen2) = randomDFSTs gen (keysAmt dpt) oTree (_ttDepth plan oTree)
-      (treeTs, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
-  in  (elevateValues treeTs $ elevate sliceTs $ dpt, gen3)
+      (sts, gen2) = randomDFSTs gen (keysAmt dpt) ot (_ttDepth plan ot)
+      (tts, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
+  in  (elevateValues tts $ elevate sts $ dpt, gen3)
 
 -- gets the depth at which the measure is at. By definition:
 measureDepth :: MusicOT -> Int
@@ -68,29 +68,28 @@ nextOT gen ptPlan otree =
 
 -- random depth-fixed slice transformations:
 -- results in a pt where all TT are applied at the same given depth.
-randomDFSTs :: StdGen -> Int -> OrientedTree a -> Int -> ([Slice -> Slice], StdGen)
+randomDFSTs
+  :: StdGen -> Int -> OrientedTree a -> Int -> ([Slice -> Slice], StdGen)
 randomDFSTs gen n ot depth =
-  let dfst = randomDFST gen ot depth
-      sts = randomSTs' gen (n - 1) ot [0..depth]
-  in (fst dfst : fst sts, snd sts)
+  let (dfst, gen2) = randomDFST gen ot depth
+      (sts, gen3) = randomSTs gen2 (n - 1) ot [0..depth]
+  in (dfst : sts, gen3)
 
 -- random depth-fixed slice transformation:
 randomDFST :: StdGen -> OrientedTree a -> Int -> (Slice -> Slice, StdGen)
 randomDFST gen tree depth =
   let ([child], gen2) = randomChildren gen [depth] tree
-  in (atDepth depth [0..child], gen2)
+  in (st depth child, gen2)
 
-
-randomSTs :: StdGen -> Int -> OrientedTree a -> ([Slice -> Slice], StdGen)
-randomSTs gen n ot = randomSTs' gen n ot (depthRange ot)
-
-randomSTs' :: StdGen -> Int -> OrientedTree a -> [Int] -> ([Slice -> Slice], StdGen)
-randomSTs' gen n ot depthRange =
+randomSTs :: StdGen -> Int -> OrientedTree a -> [Int] -> ([Slice -> Slice], StdGen)
+randomSTs gen n ot depthRange =
   let (depths, gen2) = randomDepths gen n depthRange
       (children, gen3) = randomChildren gen depths ot
-  in (zipWith (\d w -> atDepth d [0..w]) depths children, gen3)
+  in (zipWith st depths children, gen3)
   -- | gets n random slice transformations based on shape of oriented tree.
 
+st :: Int -> Int -> (Slice -> Slice)
+st depth child = atDepth depth [0..child]
 
 randomDepths :: StdGen -> Int -> [Int] -> ([Int], StdGen)
 randomDepths gen n range = runState (R.getRandoms n range) gen
