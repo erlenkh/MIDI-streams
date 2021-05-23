@@ -21,8 +21,10 @@ getTriad pitch mode = getChord pitch mode [2,4]
 
 getChord :: Pitch -> Mode -> [Int] -> Chord
 getChord r@(rootPC, octave) mode intervals =
-  let scale = scalePitches rootPC mode octave
-  in Chord {root = rootPC, pitches = r:(map (scale !!) intervals)}
+  let scale = map pitch $ scaleAbsPitches (Scale rootPC mode) octave
+  in Chord {  root = rootPC
+           ,  pitches = r: (map (scale !!) intervals)
+           }
 
 -- set inversion. works, but can be simplified
 setInversion :: Int -> Chord -> Chord
