@@ -1,5 +1,5 @@
 module Example
-( piece
+( genPiece
 ) where
 
 import MusicTrees
@@ -16,13 +16,14 @@ import Control.Monad.State
 import qualified Data.List as L
 
 -- The area where you can specify how the example piece is generated:
-piece :: StdGen -> Euterpea.Music (Pitch, Volume)
-piece gen =
+genPiece :: StdGen -> Euterpea.Music (Pitch, Volume)
+genPiece gen =
   let (cps,gen2) = genChordProgs 2 gen
-      chordsTree = toMT $ insertionsPT cps
+      chordsTree = genStartingTree cps
       -- ^ the starting tree, filled with chords
       (final, gen3) = sequencePlans gen2 ptPlans chordsTree
       -- ^ the final tree, with all pts applied to it.
+
   in toMusic final
 
 -- GENERATIVE PLANS: -----------------------------------------------------------
@@ -50,6 +51,8 @@ shape = SNode [SLeaf 2]
 
 structured :: Orientation -> [[Primitive Pitch]] -> MusicOT
 structured o chords = Group H $ map (toGroup o) chords
+
+genStartingTree cps = toMT $ insertionsPT cps
 
 insertionsPT cs = Node (atDepth 0 [0..1]) [
               Node (atDepth 1 [0..2]) [

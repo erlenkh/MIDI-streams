@@ -97,7 +97,8 @@ randomDepths gen n range = runState (R.getRandoms n range) gen
 
 randomChildren :: StdGen -> [Int] -> OrientedTree a -> ([Int], StdGen)
 randomChildren gen depths ot =
-  runState (sequence $ map (R.randomSt . childRange ot) depths) gen
+  let childRanges = map (childRange ot) depths
+  in runState (R.getRandomss childRanges) gen
   -- | ^ gets a random child (within the ot) for each depth given as input.
 
 -- range of accessable depth levels in tree:

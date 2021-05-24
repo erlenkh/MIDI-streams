@@ -110,7 +110,7 @@ instance Show (Slice -> Slice) where
 atDepth :: Int -> [Int] -> (Slice -> Slice) -- is used by partial application
 atDepth depth selection slice =
   let (a, b) = splitAt depth slice
-  in a [Some selection] ++ tail b
+  in a ++ [Some selection] ++ tail b
 
 atDepth' :: Int -> Choice -> (Slice -> Slice) -- is used by partial application
 atDepth' lvl choice slice =
@@ -140,7 +140,7 @@ isSome _  = False
 subTrees :: Slice -> OrientedTree a -> Maybe [OrientedTree a]
 subTrees _ (Val x) = Nothing
 subTrees [] tree = Just [tree]
-subTrees (c : cs) tree@(Group _ ts) =
+subTrees (c : cs) tree =
   join $ (fmap concat . sequence . map (subTrees cs)) <$> (subTrees' c tree)
 
 -- gets a Maybe list of all subtrees in a Choice.
@@ -150,28 +150,28 @@ subTrees' All (Group _ ts) = Just ts
 subTrees' (Some idxs) (Group _ ts) =
   if maximum idxs > length ts then Nothing else Just $ map (ts !!) idxs
 
-type TreeTransformation a = (OrientedTree a -> OrientedTree a)
+type TT a = (OrientedTree a -> OrientedTree a)
 
 -- | slices should not be able to be longer than height of tree
-applyTT :: Slice -> TreeTransformation a -> OrientedTree a -> Maybe (OrientedTree a)
+applyTT :: Slice -> TT a -> OrientedTree a -> Maybe (OrientedTree a)
 applyTT _ tt (Val x) = Nothing -- Cannot make a choice in a Val (only Groups)
 applyTT slice tt tree@(Group o ts) =
   if length slice > height tree
     then Nothing
     else Just $ applyTT' slice tt tree
 
-applyTT' :: Slice -> TreeTransformation a -> OrientedTree a -> OrientedTree a
+applyTT' :: Slice -> TT a -> OrientedTree a -> OrientedTree a
 applyTT' _ tt (Val x) = tt $ Val x
 -- | (can't happen) ^ If Tree is a Val, slicing makes no sense: simply apply tt
-applyTT' [c] tt (Group o ts) = Group o $ (handleChoice c) tt ts
+applyTT' [c] tt (Group o ts) = Group o $ (applyTo c) tt ts
 -- |     ^ if slice is single choice, apply tt to chosen trees
-applyTT' (c:cs) tt (Group o ts) = Group o $ (handleChoice c) (applyTT' cs tt) ts
+applyTT' (c:cs) tt (Group o ts) = Group o $ (applyTo c) (applyTT' cs tt) ts
 -- |     ^ if more choices in slice, recursively continue down tree
 
-handleChoice :: Choice -> ( (a -> a) -> [a] -> [a] )
-handleChoice c = case c of
-                  All -> map
-                  Some idxs -> zipSome idxs
+applyTo :: Choice -> ( (a -> a) -> [a] -> [a] )
+applyTo c = case c of
+              All -> map
+              Some idxs -> zipSome idxs
 
 zipSome idxs f trees =
    zipWith (\tree idx -> if idx `elem` idxs then f tree else tree) trees [0..]
@@ -251,7 +251,7 @@ instance Enumerable (PrefixTree' k) where
     where (sizes, enodes) = enumerateSubTrees n (map PT' ts)
 
 -- general way to enumerate a list of enumeratable nodes:
-enumerateSubTrees :: Enumerable e => Int -> [e x] -> ([Int], [e (Int,x)])
+enumerateSubTrees :: Enumerable e => Int -> [e a] -> ([Int], [e (Int,a)])
 enumerateSubTrees startSize (x:xs) =
   let totalsize = (sum . map fst)
       ff prev x = prev ++ [enumerate' (startSize + totalsize prev) x]
