@@ -141,7 +141,8 @@ subTrees :: Slice -> OrientedTree a -> Maybe [OrientedTree a]
 subTrees _ (Val x) = Nothing
 subTrees [] tree = Just [tree]
 subTrees (c : cs) tree =
-  join $ (fmap concat . sequence . map (subTrees cs)) <$> (subTrees' c tree)
+  let flatten = fmap concat . join
+  in flatten $ (sequence . map (subTrees cs)) <$> (subTrees' c tree)
 
 -- gets a Maybe list of all subtrees in a Choice.
 subTrees' :: Choice -> OrientedTree a -> Maybe [OrientedTree a]

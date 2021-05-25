@@ -60,8 +60,8 @@ evn x = replicate x (1/fromIntegral x)
 
 rhythm :: Rhythm -> MusicOT -> MusicOT
 rhythm rm tree =
-  let trees = (replicate (length rm) tree)
-  in Group H $ zipWith (\dur tree -> fmap (giveDuration dur) tree) rm trees
+  let ts = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur t -> fmap (giveDuration dur) t) rm ts
 
 rhythm' :: Rhythm -> MusicOT -> MusicOT
 rhythm' rm tree =
