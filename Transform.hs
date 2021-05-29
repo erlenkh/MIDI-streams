@@ -1,29 +1,122 @@
+{-# LANGUAGE FlexibleInstances, DeriveFunctor, DeriveTraversable #-}
 module Transform(
-  Motif
-, Transform.transpose
-, Transform.reverse
-, Transform.fullReverse
-, Transform.invert
-, Transform.replacePitch
-, Transform.givePitches
-, Transform.giveRhythm
-, Transform.strongCadence
-, Transform.weakCadence
-, Transform.replaceDurations
-, Transform.replaceDuration
-, Transform.movelastSD
-, Transform.cTrans
-, getDur
+  getDur
 , reorder
 , Order (..)
-, fit
 , getPitches
+, evn
+, rhythm
+, rhythm'
+, pattern
+, Pattern(..)
+, Rhythm(..)
+, Transform.insert
+, inv
+, rev
+, transp
+, strong
+, weak
+, ro
 ) where
 
-import Euterpea
 import Scale
+import MusicTrees
+import Trees
+
+import Euterpea
 import Data.List
 import Data.Maybe
+import qualified Data.Set as S
+
+-- TREE TRANSFORMATIONS: ------------------------------------------------------
+type TT = MusicOT -> MusicOT
+
+instance Show (MusicOT -> MusicOT) where
+  show tt = "TT" -- cannot show a function, so just show "TT" instead
+
+toTT :: (Motif -> Motif) -> TT
+toTT f = applySF f
+
+cMajor = Scale C Major
+
+--example gts, must be generalized:
+inv = toTT $ Transform.invert cMajor
+rev  = toTT $ Transform.reverse
+transp x = toTT $ Transform.transpose cMajor x
+strong = toTT $ strongCadence cMajor
+weak = toTT $ weakCadence cMajor
+ro = toTT . reorder
+insert new old = new
+mlSD x = toTT $ movelastSD cMajor x
+ct = toTT . cTrans
+
+  -- rhythms and patterns  -------------------------------------------------------
+
+type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
+--    ^ a rhythm, a series of durations that are looped.
+
+evn :: Int -> [Dur] -- creates a rhythm evenly divided into x hits.
+evn x = replicate x (1/fromIntegral x)
+
+rhythm :: Rhythm -> MusicOT -> MusicOT
+rhythm rm tree =
+  let ts = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur t -> fmap (giveDuration dur) t) rm ts
+
+rhythm' :: Rhythm -> MusicOT -> MusicOT
+rhythm' rm tree =
+  let td = totDur tree
+      trees = (replicate (length rm) tree)
+  in Group H $ zipWith (\dur tree -> fmap (giveDuration (dur/td)) tree) rm trees
+
+giveDuration :: Dur -> Primitive Pitch -> Primitive Pitch
+giveDuration dur (Note d p) = Note dur p
+
+type Pattern = [[Int]]
+-- ^ a pattern of scale degrees/ chord degrees. Represents a H group og V groups
+
+-- takes a group H of group V and returns a group H of Group Vs:
+pattern :: Pattern -> MusicOT -> MusicOT
+pattern p (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
+pattern p (Group o chords) =
+  Group H $ zipWith (extract) (concat $ repeat p) chords
+
+extract :: [Int] -> MusicOT -> MusicOT
+extract xs (Val x) = Val x
+-- ^ Should never happen, and makes no sense. included to avoid crash for now.
+extract xs (Group o ns) =
+  let sel = sort xs
+  in if length ns > maximum sel then Group V $ map (ns !!) sel
+     else extract (unique $ init sel ++ [length ns - 1]) (Group o ns)
+
+unique = S.toList . S.fromList
+
+type RPattern = [(Dur, [Int])]
+-- ^ Rhythmic pattern: what notes should be played for each duration.
+
+rp :: Rhythm -> Pattern -> RPattern
+rp r p = zip r (concat $ repeat p)
+
+-- takes in a pattern and a musicTree, and gives out a musictree with the
+-- pitches from the OG tree in the form of the pattern:
+rpattern :: RPattern -> MusicOT -> MusicOT
+rpattern pat tree = rpattern' pat (getPitches $ flatten tree)
+
+rpattern' :: RPattern -> [Pitch] -> MusicOT
+rpattern' pat pitches =
+  let v (dur, ns) = Group V $ map (\n -> Val $ Note dur (pitches !! n)) ns
+  -- ^ function that creates a Vertical group from one pattern-element
+  in Group H $ map v pat
+
+hDurs :: MusicOT -> Rhythm
+hDurs tree = fmap getDur $ flatten tree
+
+totDur :: MusicOT -> Dur
+totDur (Group H trees) = sum $ map totDur trees
+totDur (Group V trees) = maximum $ map totDur trees
+totDur (Val x) = getDur x
+
 
 -- MOTIF TRANSFORMATION IN SCALE CONTEXT --------------------------------------
 
@@ -32,8 +125,8 @@ import Data.Maybe
 type Motif = [Primitive Pitch]
 
 -- transpose: Transposition of Motif by a given amount of Scale Degrees
-transpose :: Root -> Mode -> ScaleDeg -> Motif -> Motif
-transpose root mode deg motif = map (primTrans root mode deg) motif
+transpose :: Scale -> ScaleDeg -> Motif -> Motif
+transpose scale deg motif = map (primTrans scale deg) motif
 
 -- reverse: Reversion of pitch sequence but not durations or rests
 reverse :: Motif -> Motif
@@ -47,12 +140,12 @@ fullReverse :: Motif -> Motif
 fullReverse motif = Data.List.reverse motif
 
 -- invert: Diatonic inversion of Motif around first note, preserving Rests
-invert :: Root -> Mode -> Motif -> Motif
-invert root mode motif =
+invert :: Scale -> Motif -> Motif
+invert scale motif =
   let motifP = getPitches motif -- removes rests
-      motifSD = map (toSD root mode) $ map (absPitch) motifP
+      motifSD = map (toSD scale) $ map (absPitch) motifP
       invMotifSD = invertSD motifSD
-      invMotifP = map (pitch . toAP root mode) $ invMotifSD
+      invMotifP = map (pitch . toAP scale) $ invMotifSD
   in  replacePitches invMotifP motif  -- replace inv pitches in motif
 
 -- gives pitches of a giver motif to a taker motif
@@ -64,11 +157,11 @@ givePitches giver taker = replacePitches (getPitches giver) taker
 giveRhythm :: Motif -> Motif -> Motif
 giveRhythm giver taker = replacePitches (getPitches taker) giver
 
-strongCadence :: Root -> Mode -> Motif -> Motif
-strongCadence root mode motif = changelastSD root mode 0 motif
+strongCadence :: Scale -> Motif -> Motif
+strongCadence scale motif = changelastSD scale 0 motif
 
-weakCadence :: Root -> Mode -> Motif -> Motif
-weakCadence root mode motif = changelastSD root mode 4 motif
+weakCadence :: Scale -> Motif -> Motif
+weakCadence scale motif = changelastSD scale 4 motif
 
 replaceDurations :: [Dur] -> Motif -> Motif
 replaceDurations durs motif = zipWith replaceDuration durs motif
@@ -131,11 +224,11 @@ getTotalDur motif = sum $ map getDur motif
 
 -- primTrans: Transposition of a Primitive Pitch by a given amt of Scale Degrees
 -- NB: fails if pitch is outside of absPitch (0,127) i.e MIDI scale (use Maybe)
-primTrans :: Root -> Mode -> ScaleDeg -> Primitive Pitch -> Primitive Pitch
-primTrans _ _ _ (Rest dur) = Rest dur
-primTrans root mode steps (Note dur p) =
-  let transposedSD =  (toSD root mode (absPitch p)) + steps
-      transposedAP = toAP root mode transposedSD
+primTrans :: Scale -> ScaleDeg -> Primitive Pitch -> Primitive Pitch
+primTrans _ _ (Rest dur) = Rest dur
+primTrans scale steps (Note dur p) =
+  let transposedSD =  (toSD scale (absPitch p)) + steps
+      transposedAP = toAP scale transposedSD
   in Note dur (pitch transposedAP)
 
 -- invertSD: Diatonic inversion of sequence of Scale Degrees around first note
@@ -145,20 +238,20 @@ invertSD motifSD =
       invInterSD = map (*(-1)) $ zipWith (-) motifSD pitchAxis
   in zipWith (+) pitchAxis invInterSD
 
-changelastSD :: Root -> Mode -> ScaleDeg -> Motif -> Motif
-changelastSD root mode deg motif =
+changelastSD :: Scale -> ScaleDeg -> Motif -> Motif
+changelastSD scale deg motif =
   let pitches = getPitches motif
-      lastPitchSD = toSD root mode $ absPitch $ last pitches
+      lastPitchSD = toSD scale $ absPitch $ last pitches
       nearestSD = (nearestMultiple 7 (lastPitchSD - deg)) + deg
-      nearestP = pitch $ toAP root mode nearestSD
+      nearestP = pitch $ toAP scale nearestSD
   in replacePitches (init pitches ++ [nearestP]) motif
 
-movelastSD :: Root -> Mode -> ScaleDeg -> Motif -> Motif
-movelastSD root mode deg motif =
+movelastSD :: Scale -> ScaleDeg -> Motif -> Motif
+movelastSD scale deg motif =
   let pitches = getPitches motif
-      lastPitchSD = toSD root mode $ absPitch $ last pitches
+      lastPitchSD = toSD scale $ absPitch $ last pitches
       newLastPitchSD = lastPitchSD + deg
-      newLastPitchP = pitch $ toAP root mode newLastPitchSD
+      newLastPitchP = pitch $ toAP scale newLastPitchSD
   in replacePitches (init pitches ++ [newLastPitchP]) motif
 
 replaceDuration :: Dur -> Primitive Pitch -> Primitive Pitch
@@ -182,8 +275,8 @@ getPitches motif =
   let pitches = map getPitch motif
   in catMaybes $ pitches
 
-toSD root mode = fromJust . Scale.toScaleDeg root mode
-toAP root mode = fromJust . Scale.toAbsPitch root mode
+toSD scale = fromJust . Scale.toScaleDeg scale
+toAP scale = fromJust . Scale.toAbsPitch scale
 
 notRest (Rest _ ) = False
 notRest (Note _ _) = True
@@ -192,18 +285,3 @@ nearestMultiple :: Int -> Int -> Int
 nearestMultiple n number = round(fromIntegral number/fromIntegral n) * n
 
 -- TESTING ---------------------------------------------------------------------
-
-motif :: Motif
-motif = [Note en (C,4), Rest sn, Note sn (C,4), Note en (E,4), Note en (B,4)]
-durs = [qn, en, en, qn, qn]
-motifP :: [Pitch]
-motifP = [(G,4), (A,4), (G,4), (A,4)]
-
-motif_inv = Transform.invert C Major motif
-motif_trans2 = Transform.transpose C Major 2 motif
-motif_rev = Transform.reverse motif
-
-test_all = toM $ concat [motif, motif_inv, motif_trans2, motif_rev]
-test_trans = toM $ concat $ map (\x -> Transform.transpose C Major x motif) [0..8]
-
-toM motif = line $ map (\x -> Prim (x)) $ motif
