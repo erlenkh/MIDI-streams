@@ -203,7 +203,7 @@ randomSTs' gen n ot depthRange =
 subTrees :: Slice -> OrientedTree a -> Maybe [OrientedTree a]
 subTrees _ (Val x) = Nothing
 subTrees [] tree = Just [tree]
-subTrees (c : cs) tree@(Group _ ts) =
+subTrees (c : cs) tree =
   join $ (fmap concat . sequence . map (subTrees cs)) <$> (subTrees' c tree)
 
 -- gets a Maybe list of all subtrees in a Choice.
