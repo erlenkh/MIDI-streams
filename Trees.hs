@@ -183,15 +183,6 @@ instance Functor (PrefixTree' k) where
   fmap f (PT' (Node k trees)) = PT' $ Node k (map (pt . fmap f . PT') trees)
 
 
-lookupPT :: (Eq k) => PrefixTree v k -> [k] ->  Maybe v
-lookupPT  _ [] = Nothing
-lookupPT (Leaf k v) [x] = if x == k then Just v else Nothing
-lookupPT (Leaf k v) (x:xs) = Nothing
-lookupPT (Node k ptrees) (x:xs) =  if k == x then check else Nothing
-  where check = case (find (\pt -> isJust $ lookupPT pt xs) ptrees) of
-                  Just tree -> lookupPT tree xs
-                  Nothing -> Nothing
-
 getAllPaths :: PrefixTree v k -> [[k]]
 getAllPaths (Leaf k v) = [[k]]
 getAllPaths (Node k trees) =
