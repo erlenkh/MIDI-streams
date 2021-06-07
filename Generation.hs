@@ -34,10 +34,16 @@ defaultPT (SLeaf n) = Node id (replicate n $ Leaf id (id))
 defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 -- |                ^ id is default function. doesnt change anything..
 
+defaultPT' = Node id [
+              Leaf id id
+            , Leaf id id
+            , Leaf id id
+            ]
+
 -- generates a random PT according to the plan and OT it is to be applied to:
 genPT :: StdGen -> Plan -> MusicOT -> (MusicPT, StdGen)
 genPT gen plan ot =
-  let dpt = defaultPT (_ptShape plan)
+  let dpt = defaultPT' -- (_ptShape plan)
       (sts, gen2) = randomDFSTs gen (keysAmt dpt) ot (_ttDepth plan ot)
       (tts, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
   in  (elevateValues tts $ elevate sts $ dpt, gen3)
@@ -109,3 +115,7 @@ depthRange tree = [0 .. (height tree) - 2] --  -1 bc of 0-index
 childRange :: OrientedTree a -> Int -> [Int]
 childRange tree depth = [0 .. (minimum $ childrenAtDepth tree depth) - 1] -- 0-index
 -- ^ min due to slicing, (+ the amt of children at a depth is mostly constant)
+
+-- TESTING: --------------------------------------------------------------------
+shape :: Shape
+shape = SNode [SLeaf 2]

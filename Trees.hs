@@ -75,7 +75,7 @@ children (Group o trees) = length (trees)
 childrenAtDepth :: OrientedTree a -> Int -> [Int]
 childrenAtDepth tree depth =
     map children (fromJust $ subTrees (replicate depth All) tree)
-  -- ^ getElement should never return Nothing,  (paths are from paths function)
+  -- ^ subTre should never return Nothing,  (paths are from paths function)
 
 -- SLICES ----------------------------------------------------------------------
 
