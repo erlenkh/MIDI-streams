@@ -40,10 +40,21 @@ defaultPT' = Node id [
             , Leaf id id
             ]
 
+defaultPT'' = Node id [
+                  Node id [
+                    Leaf id id
+                  , Leaf id id
+                  ]
+                  Node id [
+                    Leaf id id
+                  , Leaf id id
+                  ]
+              ]
+
 -- generates a random PT according to the plan and OT it is to be applied to:
 genPT :: StdGen -> Plan -> MusicOT -> (MusicPT, StdGen)
 genPT gen plan ot =
-  let dpt = defaultPT' -- (_ptShape plan)
+  let dpt = defaultPT'' -- (_ptShape plan)
       (sts, gen2) = randomDFSTs gen (keysAmt dpt) ot (_ttDepth plan ot)
       (tts, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
   in  (elevateValues tts $ elevate sts $ dpt, gen3)
