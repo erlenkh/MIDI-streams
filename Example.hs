@@ -60,6 +60,13 @@ insertionsPT cs = Node (atDepth 0 [0..1]) [
               , Leaf (atDepth 2 [2..3]) (insert $ structured V (cs !! 1))
               ]
             ]
+
+insertionsPT' = Node (atDepth 0 [0]) [
+                  Leaf (atDepth 1 [0,1]) (insert $ structured V nico)
+                ]
+
+testBoy = toMT insertionsPT'
+
 chordProgressions = [nico, house, dreams]
 
 genChordProgs x = runState (R.getRandoms x chordProgressions)
