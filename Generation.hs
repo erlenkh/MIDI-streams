@@ -11,6 +11,7 @@ import qualified Random as R
 
 import Control.Monad.State
 import System.Random
+import Data.Maybe
 
 -- GENERATING MUSIC PTS : ------------------------------------------------------
 
@@ -37,20 +38,19 @@ defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 defaultPT' = Node id [
               Leaf id id
             , Leaf id id
-            , Leaf id id
             ]
 
 defaultPT'' = Node id [
                   Node id [
                     Leaf id id
                   , Leaf id id
-                  ]
-                  Node id [
-                    Leaf id id
-                  , Leaf id id
-                  ]
+                ]
+              , Node id [
+                  Leaf id id
+                ]
               ]
 
+defaultPT''' = Node id [Node id [Node id [ Node id [Leaf id id, Leaf id id, Leaf id id]]]]
 -- generates a random PT according to the plan and OT it is to be applied to:
 genPT :: StdGen -> Plan -> MusicOT -> (MusicPT, StdGen)
 genPT gen plan ot =
@@ -124,7 +124,11 @@ depthRange tree = [0 .. (height tree) - 2] --  -1 bc of 0-index
 
 -- range of accessable children-indexes in tree at a given depth:
 childRange :: OrientedTree a -> Int -> [Int]
-childRange tree depth = [0 .. (minimum $ childrenAtDepth tree depth) - 1] -- 0-index
+childRange tree depth =
+  let cad = childrenAtDepth tree depth
+  in case cad of
+    Just children -> [0 .. (minimum $ children) - 1] -- 0-index
+    Nothing -> [0]
 -- ^ min due to slicing, (+ the amt of children at a depth is mostly constant)
 
 -- TESTING: --------------------------------------------------------------------
