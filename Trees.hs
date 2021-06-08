@@ -72,9 +72,10 @@ children :: OrientedTree a -> Int
 children (Val a) = 0
 children (Group o trees) = length (trees)
 
-childrenAtDepth :: OrientedTree a -> Int -> [Int]
+childrenAtDepth :: OrientedTree a -> Int -> Maybe [Int]
 childrenAtDepth tree depth =
-    map children (fromJust $ subTrees (replicate depth All) tree)
+    map children <$> subTrees (replicate depth All) tree 
+
   -- ^ subTre should never return Nothing,  (paths are from paths function)
 
 -- SLICES ----------------------------------------------------------------------
