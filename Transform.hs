@@ -50,7 +50,7 @@ insert new old = new
 mlSD x = toTT $ movelastSD cMajor x
 ct = toTT . cTrans
 
-  -- rhythms and patterns  -------------------------------------------------------
+  -- rhythms and patterns  -----------------------------------------------------
 
 type Rhythm = [Dur] -- problem: how do we differentiate between a note and a rest?
 --    ^ a rhythm, a series of durations that are looped.

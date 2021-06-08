@@ -28,7 +28,7 @@ genPiece gen =
 
 -- GENERATIVE PLANS: -----------------------------------------------------------
 
-ptPlans = [rhythmPlan, patternPlan, transformPlan]
+ptPlans = [rhythmPlan, patternPlan]
 
 rhythmPlan = Plan { _ttPool = map rhythm' [ronettes, n, evn 4]
                   , _ttDepth = \tree -> measureDepth tree + 1
