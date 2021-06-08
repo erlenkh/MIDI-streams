@@ -164,6 +164,7 @@ applyTo c = case c of
 
 zipSome idxs f trees =
    zipWith (\tree idx -> if idx `elem` idxs then f tree else tree) trees [0..]
+-- ^ function doesn't fail if length of idxs of some is long than length trees
 
 replaceVal :: a -> a -> a
 replaceVal new old = new
