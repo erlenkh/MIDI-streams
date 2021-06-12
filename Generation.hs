@@ -20,7 +20,8 @@ data Plan = Plan { _ttPool :: [MusicOT -> MusicOT]
                   -- ^ the list of possible tree transformations
                   , _ttDepth :: MusicOT -> Int
                   --   ^ depth at which the tt's should be applied in OT
-                  , _ptShape :: Shape
+                  , _skeleton :: MusicPT
+              --    , _ptShape :: Shape
                  }
 
 -- the shape of each PT
@@ -35,26 +36,12 @@ defaultPT (SLeaf n) = Node id (replicate n $ Leaf id (id))
 defaultPT (SNode shapes) = Node id (map defaultPT shapes)
 -- |                ^ id is default function. doesnt change anything..
 
-defaultPT' = Node id [
-              Leaf id id
-            , Leaf id id
-            ]
-
-defaultPT'' = Node id [
-                  Node id [
-                    Leaf id id
-                  , Leaf id id
-                ]
-              , Node id [
-                  Leaf id id
-                ]
-              ]
 
 defaultPT''' = Node id [Node id [Node id [ Node id [Leaf id id, Leaf id id, Leaf id id]]]]
 -- generates a random PT according to the plan and OT it is to be applied to:
 genPT :: StdGen -> Plan -> MusicOT -> (MusicPT, StdGen)
 genPT gen plan ot =
-  let dpt = defaultPT'' -- (_ptShape plan)
+  let dpt = _skeleton plan --defaultPT''  -- (_ptShape plan)
       (sts, gen2) = randomDFSTs gen (keysAmt dpt) ot (_ttDepth plan ot)
       (tts, gen3) = randomTTs gen2 (valuesAmt dpt) (_ttPool plan)
   in  (elevateValues tts $ elevate sts $ dpt, gen3)
@@ -134,3 +121,30 @@ childRange tree depth =
 -- TESTING: --------------------------------------------------------------------
 shape :: Shape
 shape = SNode [SLeaf 2]
+
+
+testMT :: OrientedTree Char
+testMT =     Group H [
+                Group V [
+                  Val 'C',
+                  Val 'A',
+                  Val 'T'
+                ],
+                Group V [
+                  Val 'D',
+                  Val 'O',
+                  Val 'G'
+                ],
+                Group H [
+                  Group H [
+                    Val 'K',
+                    Val 'I',
+                    Val 'L'
+                  ],
+                  Group H [
+                    Val 'L',
+                    Val 'E',
+                    Val 'R'
+                  ]
+                ]
+              ]

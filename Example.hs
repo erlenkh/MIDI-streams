@@ -26,26 +26,39 @@ genPiece gen =
 
   in toMusic final
 
+
 -- GENERATIVE PLANS: -----------------------------------------------------------
 
 ptPlans = [rhythmPlan, patternPlan]
 
 rhythmPlan = Plan { _ttPool = map rhythm' [ronettes, n, evn 4]
                   , _ttDepth = \tree -> measureDepth tree + 1
-                  , _ptShape = shape
+                  , _skeleton = defaultPT'
                   }
 
-patternPlan = Plan { _ttPool = map pattern [full, waltz, sadwaltz]
+patternPlan = Plan { _ttPool = map pattern [full, waltz, sadwaltz, falling]
                   ,  _ttDepth = \tree -> measureDepth tree
-                  ,  _ptShape = shape
+                  ,  _skeleton = defaultPT''
                   }
 
-transformPlan = Plan { _ttPool = [inv, rev, transp (-1), strong, weak]
-                  ,  _ttDepth = \tree -> measureDepth tree - 1
-                  ,  _ptShape = shape
-                  }
 
-shape = SNode [SLeaf 2]
+defaultPT' = Node id [
+                Node id [
+                  Leaf id id
+                , Leaf id id
+                ]
+              ]
+
+defaultPT'' = Node id [
+                  Node id [
+                    Leaf id id
+                  , Leaf id id
+                ]
+              ,   Node id [
+                  Leaf id id
+                , Leaf id id
+              ]
+              ]
 
 -- STARTING CHORD TREE: --------------------------------------------------------
 

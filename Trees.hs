@@ -74,9 +74,7 @@ children (Group o trees) = length (trees)
 
 childrenAtDepth :: OrientedTree a -> Int -> Maybe [Int]
 childrenAtDepth tree depth =
-    map children <$> subTrees (replicate depth All) tree 
-
-  -- ^ subTre should never return Nothing,  (paths are from paths function)
+    map children <$> subTrees (replicate depth All) tree
 
 -- SLICES ----------------------------------------------------------------------
 
@@ -101,6 +99,15 @@ atDepth depth selection slice =
   let (a, b) = splitAt depth slice
   in a ++ [Some selection] ++ tail b
 
+
+atDepth'' :: Int -> [Int] -> (Slice -> Maybe Slice)
+atDepth'' depth selection slice =
+  if (length slice - depth) >= 1
+    then  let (a, b) = splitAt depth slice
+          in Just $ a ++ [Some selection] ++ tail b
+    else Nothing
+
+
 atDepth' :: Int -> Choice -> (Slice -> Slice) -- is used by partial application
 atDepth' lvl choice slice =
   let (first, second) = splitAt lvl slice
@@ -112,13 +119,9 @@ smallestDefault sts = replicate ((getDeepest sts) + 1) All
 getDeepest :: [Slice -> Slice] -> Int
 getDeepest sts = maximum $ map getDepth sts
 
--- a piece cannot have more that 666 hierarchical levels, should be generalized
-getDepth :: (Slice -> Slice) -> Int
-getDepth sTrans = maximum $ findIndices (isSome) $ sTrans $ replicate (666) All
-
 -- only works with sts that only transform one depth.
-getDepth' :: (Slice -> Slice) -> Int
-getDepth' st = fromJust . findIndex (isSome) . st $ repeat All
+getDepth :: (Slice -> Slice) -> Int
+getDepth st = fromJust . findIndex (isSome) . st $ repeat All
 
 isSome (Some _) = True
 isSome _  = False
@@ -183,7 +186,6 @@ instance Functor (PrefixTree v) where
 instance Functor (PrefixTree' k) where
   fmap f (PT' (Leaf k v)) = PT' $ Leaf k (f v)
   fmap f (PT' (Node k trees)) = PT' $ Node k (map (pt . fmap f . PT') trees)
-
 
 getAllPaths :: PrefixTree v k -> [[k]]
 getAllPaths (Leaf k v) = [[k]]
